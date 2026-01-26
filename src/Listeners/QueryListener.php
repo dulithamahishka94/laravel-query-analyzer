@@ -10,6 +10,7 @@ use Laravel\QueryAnalyzer\QueryAnalyzer;
 class QueryListener
 {
     protected QueryAnalyzer $analyzer;
+    protected bool $handling = false;
 
     public function __construct(QueryAnalyzer $analyzer)
     {
@@ -23,11 +24,21 @@ class QueryListener
 
     public function handle(QueryExecuted $event): void
     {
-        $this->analyzer->recordQuery(
-            $event->sql,
-            $event->bindings,
-            $event->time,
-            $event->connectionName
-        );
+        if ($this->handling) {
+            return;
+        }
+
+        $this->handling = true;
+
+        try {
+            $this->analyzer->recordQuery(
+                $event->sql,
+                $event->bindings,
+                $event->time / 1000, // Convert ms to seconds
+                $event->connectionName
+            );
+        } finally {
+            $this->handling = false;
+        }
     }
 }

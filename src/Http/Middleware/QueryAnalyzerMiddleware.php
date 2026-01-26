@@ -8,13 +8,34 @@ use Symfony\Component\HttpFoundation\Response;
 
 class QueryAnalyzerMiddleware
 {
+    protected \Laravel\QueryAnalyzer\QueryAnalyzer $analyzer;
+
+    public function __construct(\Laravel\QueryAnalyzer\QueryAnalyzer $analyzer)
+    {
+        $this->analyzer = $analyzer;
+    }
+
     public function handle(Request $request, Closure $next): Response
     {
-        if (!$this->isAuthorized($request)) {
-            abort(403, 'Access denied to Query Analyzer. Please check your configuration.');
+        // 1. Initialize Request ID for grouping
+        $requestId = $request->header('X-Request-ID') ?? \Illuminate\Support\Str::uuid()->toString();
+        $this->analyzer->setRequestId($requestId);
+
+        // 2. Authorization for DASHBOARD access
+        if (str_contains($request->getPathInfo(), 'query-analyzer')) {
+            if (!$this->isAuthorized($request)) {
+                abort(403, 'Access denied to Query Analyzer. Please check your configuration.');
+            }
         }
 
-        return $next($request);
+        $response = $next($request);
+
+        // 3. Add Request ID to response header for debugging
+        if ($response instanceof Response) {
+            $response->headers->set('X-Query-Analyzer-ID', $requestId);
+        }
+
+        return $response;
     }
 
     protected function isAuthorized(Request $request): bool
@@ -32,7 +53,7 @@ class QueryAnalyzerMiddleware
 
         $authCallback = config('query-analyzer.web_ui.auth_callback');
         if ($authCallback && is_callable($authCallback)) {
-            return call_user_func($authCallback, $request);
+            return (bool) call_user_func($authCallback, $request);
         }
 
         return true;

@@ -18,7 +18,7 @@ class QueryAnalyzerTest extends TestCase
                 'moderate' => 0.5,
                 'slow' => 1.0,
             ]
-        ]);
+        ], new \Laravel\QueryAnalyzer\Tests\Fakes\InMemoryQueryStorage());
     }
 
     public function test_it_can_record_queries(): void
@@ -28,6 +28,8 @@ class QueryAnalyzerTest extends TestCase
         $queries = $this->analyzer->getQueries();
         $this->assertCount(1, $queries);
         $this->assertEquals('SELECT * FROM users', $queries->first()['sql']);
+        $this->assertArrayHasKey('id', $queries->first());
+        $this->assertEquals(36, strlen($queries->first()['id']));
     }
 
     public function test_it_analyzes_query_type(): void
@@ -79,8 +81,8 @@ class QueryAnalyzerTest extends TestCase
         $analysis = $this->analyzer->analyzeQuery('SELECT * FROM users ORDER BY created_at');
         $recommendations = $analysis['recommendations'];
 
-        $this->assertContains('Avoid SELECT * - specify only needed columns', $recommendations);
-        $this->assertContains('Consider adding LIMIT when using ORDER BY', $recommendations);
+        $this->assertContains('Avoid "SELECT *" - select only necessary columns to reduce data transfer.', $recommendations);
+        $this->assertContains('Sorting (ORDER BY) without LIMIT can be resource intensive.', $recommendations);
     }
 
     public function test_it_detects_issues(): void
@@ -105,7 +107,7 @@ class QueryAnalyzerTest extends TestCase
 
         $this->assertEquals(3, $stats['total_queries']);
         $this->assertEquals(1.65, $stats['total_time']);
-        $this->assertEquals(0.55, $stats['average_time']);
+        $this->assertEqualsWithDelta(0.55, $stats['average_time'], 0.0001);
         $this->assertEquals(1, $stats['slow_queries']);
         $this->assertArrayHasKey('SELECT', $stats['query_types']);
         $this->assertArrayHasKey('INSERT', $stats['query_types']);
@@ -118,5 +120,42 @@ class QueryAnalyzerTest extends TestCase
 
         $this->analyzer->reset();
         $this->assertCount(0, $this->analyzer->getQueries());
+    }
+
+    public function test_it_ignores_internal_cache_queries_with_bindings(): void
+    {
+        // SQL string with marker (already handled previously)
+        $this->analyzer->recordQuery('SELECT * FROM cache WHERE key = "laravel_query_analyzer_queries_v3"', [], 0.05);
+        $this->assertCount(0, $this->analyzer->getQueries());
+
+        // Marker in bindings (the new fix)
+        $this->analyzer->recordQuery('SELECT * FROM cache WHERE key = ?', ['laravel_query_analyzer_queries_v3'], 0.05);
+        $this->assertCount(0, $this->analyzer->getQueries());
+
+        // Normal query should still work
+        $this->analyzer->recordQuery('SELECT * FROM users WHERE id = ?', [1], 0.05);
+        $this->assertCount(1, $this->analyzer->getQueries());
+    }
+    public function test_it_generates_valid_uuid_ids(): void
+    {
+        // 1. Record a query
+        $this->analyzer->recordQuery('SELECT * FROM users', [], 0.05);
+        $query1 = $this->analyzer->getQueries()->first();
+
+        // Check if ID exists and is a valid UUID
+        $this->assertArrayHasKey('id', $query1);
+        $this->assertTrue(is_string($query1['id']));
+        $this->assertEquals(36, strlen($query1['id']));
+        $this->assertEquals(4, substr_count($query1['id'], '-'));
+
+        // 2. Record the EXACT SAME query again
+        $this->analyzer->recordQuery('SELECT * FROM users', [], 0.05);
+        $queries = $this->analyzer->getQueries();
+        
+        $this->assertCount(2, $queries);
+        
+        // Ensure IDs are unique even for identical SQL
+        $ids = $queries->pluck('id')->unique();
+        $this->assertCount(2, $ids, 'IDs should be unique even for identical queries');
     }
 }

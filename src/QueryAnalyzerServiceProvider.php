@@ -18,8 +18,17 @@ class QueryAnalyzerServiceProvider extends ServiceProvider
             'query-analyzer'
         );
 
+        $this->app->bind(\Laravel\QueryAnalyzer\Contracts\QueryStorage::class, function ($app) {
+            return new \Laravel\QueryAnalyzer\Storage\CacheQueryStorage(
+                config('query-analyzer.store')
+            );
+        });
+
         $this->app->singleton(QueryAnalyzer::class, function ($app) {
-            return new QueryAnalyzer($app['config']['query-analyzer']);
+            return new QueryAnalyzer(
+                $app['config']['query-analyzer'],
+                $app->make(\Laravel\QueryAnalyzer\Contracts\QueryStorage::class)
+            );
         });
 
         $this->app->singleton(QueryListener::class);
@@ -63,10 +72,11 @@ class QueryAnalyzerServiceProvider extends ServiceProvider
 
                 Route::prefix('api')->group(function () {
                     Route::get('queries', [QueryAnalyzerController::class, 'queries'])->name('query-analyzer.api.queries');
-                    Route::get('query/{index}', [QueryAnalyzerController::class, 'query'])->name('query-analyzer.api.query');
+                    Route::get('query/{id}', [QueryAnalyzerController::class, 'query'])->name('query-analyzer.api.query');
                     Route::get('stats', [QueryAnalyzerController::class, 'stats'])->name('query-analyzer.api.stats');
                     Route::post('reset', [QueryAnalyzerController::class, 'reset'])->name('query-analyzer.api.reset');
                     Route::post('analyze', [QueryAnalyzerController::class, 'analyze'])->name('query-analyzer.api.analyze');
+                    Route::post('explain', [QueryAnalyzerController::class, 'explain'])->name('query-analyzer.api.explain');
                     Route::post('export', [QueryAnalyzerController::class, 'export'])->name('query-analyzer.api.export');
                 });
             });

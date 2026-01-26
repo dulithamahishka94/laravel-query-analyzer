@@ -12,6 +12,7 @@ return [
     |
     */
     'enabled' => env('QUERY_ANALYZER_ENABLED', false),
+    'store' => env('CACHE_STORE', null),
 
     /*
     |--------------------------------------------------------------------------
