@@ -1,5 +1,5 @@
 {
-    "name": "laravel/query-analyzer",
+    "name": "coderflex/query-lens",
     "description": "A Laravel package for analyzing and optimizing database queries with performance insights",
     "type": "library",
     "license": "MIT",
@@ -8,14 +8,16 @@
         "database",
         "query",
         "analyzer",
+        "profiler",
         "performance",
         "optimization",
-        "sql"
+        "sql",
+        "eloquent"
     ],
     "authors": [
         {
-            "name": "Laravel Query Analyzer Contributors",
-            "email": "developers@example.com"
+            "name": "Coderflex",
+            "email": "developers@coderflex.com"
         }
     ],
     "require": {
@@ -31,18 +33,18 @@
     },
     "autoload": {
         "psr-4": {
-            "Laravel\\QueryAnalyzer\\": "src/"
+            "Coderflex\\QueryLens\\": "src/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "Laravel\\QueryAnalyzer\\Tests\\": "tests/"
+            "Coderflex\\QueryLens\\Tests\\": "tests/"
         }
     },
     "extra": {
         "laravel": {
             "providers": [
-                "Laravel\\QueryAnalyzer\\QueryAnalyzerServiceProvider"
+                "Coderflex\\QueryLens\\QueryLensServiceProvider"
             ]
         }
     },

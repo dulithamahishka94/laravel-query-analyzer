@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Laravel\QueryAnalyzer\Tests;
+namespace Coderflex\QueryLens\Tests;
 
 use Orchestra\Testbench\TestCase;
-use Laravel\QueryAnalyzer\ExplainAnalyzer\ExplainAnalyzer;
-use Laravel\QueryAnalyzer\ExplainAnalyzer\Parser\ExplainAnalyzeParser;
-use Laravel\QueryAnalyzer\ExplainAnalyzer\Analyzer\QueryAnalyzer;
-use Laravel\QueryAnalyzer\ExplainAnalyzer\Issues\IssueType;
-use Laravel\QueryAnalyzer\ExplainAnalyzer\Issues\IssueSeverity;
+use Coderflex\QueryLens\ExplainAnalyzer\ExplainAnalyzer;
+use Coderflex\QueryLens\ExplainAnalyzer\Parser\ExplainAnalyzeParser;
+use Coderflex\QueryLens\ExplainAnalyzer\Analyzer\QueryAnalyzer;
+use Coderflex\QueryLens\ExplainAnalyzer\Issues\IssueType;
+use Coderflex\QueryLens\ExplainAnalyzer\Issues\IssueSeverity;
 
 class ExplainAnalyzerTest extends TestCase
 {

@@ -1,9 +1,9 @@
 <?php
 
-namespace Laravel\QueryAnalyzer\Commands;
+namespace Coderflex\QueryLens\Commands;
 
 use Illuminate\Console\Command;
-use Laravel\QueryAnalyzer\QueryAnalyzer;
+use Coderflex\QueryLens\QueryAnalyzer;
 
 class AnalyzeQueriesCommand extends Command
 {
@@ -32,7 +32,7 @@ class AnalyzeQueriesCommand extends Command
         }
 
         if ($this->option('slow-only')) {
-            $slowThreshold = config('query-analyzer.performance_thresholds.slow', 1.0);
+            $slowThreshold = config('query-lens.performance_thresholds.slow', 1.0);
             $queries = $queries->where('time', '>', $slowThreshold);
 
             if ($queries->isEmpty()) {

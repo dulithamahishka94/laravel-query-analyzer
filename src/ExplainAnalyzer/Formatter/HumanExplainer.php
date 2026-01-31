@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Laravel\QueryAnalyzer\ExplainAnalyzer\Formatter;
+namespace Coderflex\QueryLens\ExplainAnalyzer\Formatter;
 
-use Laravel\QueryAnalyzer\ExplainAnalyzer\Analyzer\AnalysisResult;
-use Laravel\QueryAnalyzer\ExplainAnalyzer\Nodes\OperationNode;
-use Laravel\QueryAnalyzer\ExplainAnalyzer\Issues\Issue;
-use Laravel\QueryAnalyzer\ExplainAnalyzer\Issues\IssueSeverity;
+use Coderflex\QueryLens\ExplainAnalyzer\Analyzer\AnalysisResult;
+use Coderflex\QueryLens\ExplainAnalyzer\Nodes\OperationNode;
+use Coderflex\QueryLens\ExplainAnalyzer\Issues\Issue;
+use Coderflex\QueryLens\ExplainAnalyzer\Issues\IssueSeverity;
 
 /**
  * Generates human-readable explanations from analysis results.

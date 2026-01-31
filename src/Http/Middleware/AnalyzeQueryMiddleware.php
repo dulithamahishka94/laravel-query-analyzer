@@ -1,10 +1,10 @@
 <?php
 
-namespace Laravel\QueryAnalyzer\Http\Middleware;
+namespace Coderflex\QueryLens\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
-use Laravel\QueryAnalyzer\QueryAnalyzer;
+use Coderflex\QueryLens\QueryAnalyzer;
 use Illuminate\Support\Str;
 
 class AnalyzeQueryMiddleware

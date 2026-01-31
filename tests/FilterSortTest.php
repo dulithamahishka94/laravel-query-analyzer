@@ -1,11 +1,11 @@
 <?php
 
-namespace Laravel\QueryAnalyzer\Tests;
+namespace Coderflex\QueryLens\Tests;
 
 use Orchestra\Testbench\TestCase;
-use Laravel\QueryAnalyzer\QueryAnalyzer;
-use Laravel\QueryAnalyzer\Storage\CacheQueryStorage;
-use Laravel\QueryAnalyzer\Http\Controllers\QueryAnalyzerController;
+use Coderflex\QueryLens\QueryAnalyzer;
+use Coderflex\QueryLens\Storage\CacheQueryStorage;
+use Coderflex\QueryLens\Http\Controllers\QueryLensController;
 use Illuminate\Http\Request;
 
 class FilterSortTest extends TestCase
@@ -16,10 +16,10 @@ class FilterSortTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        
+
         $storage = new CacheQueryStorage('array');
         $this->analyzer = new QueryAnalyzer([], $storage);
-        $this->controller = new QueryAnalyzerController($this->analyzer);
+        $this->controller = new QueryLensController($this->analyzer, $storage);
         
         // Seed Data
         $this->analyzer->setRequestId('req-1');

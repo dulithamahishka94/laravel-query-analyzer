@@ -1,10 +1,10 @@
 <?php
 
-namespace Laravel\QueryAnalyzer;
+namespace Coderflex\QueryLens;
 
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
-use Laravel\QueryAnalyzer\Contracts\QueryStorage;
+use Coderflex\QueryLens\Contracts\QueryStorage;
 
 class QueryAnalyzer
 {
@@ -33,7 +33,7 @@ class QueryAnalyzer
     public function recordQuery(string $sql, array $bindings = [], float $time = 0.0, string $connection = 'default'): void
     {
         // 1. Ignore queries related to the analyzer's own cache storage
-        if (str_contains($sql, 'laravel_query_analyzer_queries_v3')) {
+        if (str_contains($sql, 'laravel_query_lens_queries_v3')) {
             return;
         }
 
@@ -44,14 +44,14 @@ class QueryAnalyzer
 
         // Also check bindings for the cache key, as database-backed cache drivers use parameter binding
         foreach ($bindings as $binding) {
-            if (is_string($binding) && str_contains($binding, 'laravel_query_analyzer_queries_v3')) {
+            if (is_string($binding) && str_contains($binding, 'laravel_query_lens_queries_v3')) {
                 return;
             }
         }
 
         // 2. Ignore session queries if we are currently on the analyzer dashboard (heuristic)
         // This prevents the dashboard "Refresh/Reset" from logging its own session lookups
-        if (str_contains($sql, 'sessions') && str_contains(request()->getPathInfo(), 'query-analyzer')) {
+        if (str_contains($sql, 'sessions') && str_contains(request()->getPathInfo(), 'query-lens')) {
             return;
         }
 
@@ -85,7 +85,7 @@ class QueryAnalyzer
     public function recordCacheInteraction(string $type, string $key, array $tags = [], mixed $value = null): void
     {
         // Ignore analyzer's own cache keys
-        if (str_contains($key, 'laravel_query_analyzer_queries_v3')) {
+        if (str_contains($key, 'laravel_query_lens_queries_v3')) {
             return;
         }
 

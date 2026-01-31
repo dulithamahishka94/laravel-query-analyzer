@@ -1,0 +1,270 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Coderflex\QueryLens\Storage;
+
+use Carbon\Carbon;
+use Illuminate\Support\Str;
+use Coderflex\QueryLens\Contracts\QueryStorage;
+use Coderflex\QueryLens\Models\AnalyzedQuery;
+use Coderflex\QueryLens\Models\AnalyzedRequest;
+use Coderflex\QueryLens\Models\QueryAggregate;
+use Coderflex\QueryLens\Models\TopQuery;
+use Coderflex\QueryLens\Services\AlertService;
+
+class DatabaseQueryStorage implements QueryStorage
+{
+    protected ?AlertService $alertService = null;
+
+    public function setAlertService(AlertService $alertService): void
+    {
+        $this->alertService = $alertService;
+    }
+
+    public function store(array $query): void
+    {
+        $requestId = $query['request_id'] ?? null;
+
+        // Ensure request exists
+        if ($requestId) {
+            $this->ensureRequestExists($requestId, $query);
+        }
+
+        // Normalize and hash SQL
+        $sqlHash = AnalyzedQuery::hashSql($query['sql'] ?? '');
+        $sqlNormalized = AnalyzedQuery::normalizeSql($query['sql'] ?? '');
+
+        // Extract analysis data
+        $analysis = $query['analysis'] ?? [];
+        $issues = $analysis['issues'] ?? [];
+        $isNPlusOne = collect($issues)->contains(fn($i) => ($i['type'] ?? '') === 'n+1');
+
+        // Create query record
+        $analyzedQuery = AnalyzedQuery::create([
+            'id' => $query['id'] ?? Str::orderedUuid()->toString(),
+            'request_id' => $requestId,
+            'sql_hash' => $sqlHash,
+            'sql' => $query['sql'],
+            'sql_normalized' => $sqlNormalized,
+            'bindings' => $query['bindings'] ?? [],
+            'time' => $query['time'] ?? 0,
+            'connection' => $query['connection'] ?? 'default',
+            'type' => strtoupper($analysis['type'] ?? 'OTHER'),
+            'performance_rating' => $analysis['performance']['rating'] ?? 'fast',
+            'is_slow' => $analysis['performance']['is_slow'] ?? false,
+            'complexity_score' => $analysis['complexity']['score'] ?? 0,
+            'complexity_level' => $analysis['complexity']['level'] ?? 'low',
+            'analysis' => [
+                'recommendations' => $analysis['recommendations'] ?? [],
+                'issues' => $issues,
+            ],
+            'origin' => $query['origin'] ?? ['file' => 'unknown', 'line' => 0, 'is_vendor' => false],
+            'is_n_plus_one' => $isNPlusOne,
+            'n_plus_one_count' => $isNPlusOne ? ($this->countSimilarQueries($requestId, $sqlHash) + 1) : 0,
+            'created_at' => now(),
+        ]);
+
+        // Update request aggregates
+        if ($requestId) {
+            $this->updateRequestAggregates($requestId);
+        }
+
+        // Check alerts
+        if ($this->alertService) {
+            $this->alertService->checkAlerts($analyzedQuery);
+        }
+    }
+
+    public function get(int $limit = 100): array
+    {
+        return AnalyzedQuery::orderByDesc('created_at')
+            ->limit($limit)
+            ->get()
+            ->map(fn($q) => $q->toApiArray())
+            ->toArray();
+    }
+
+    public function clear(): void
+    {
+        AnalyzedQuery::truncate();
+        AnalyzedRequest::truncate();
+    }
+
+    public function getByRequest(string $requestId): array
+    {
+        return AnalyzedQuery::where('request_id', $requestId)
+            ->orderBy('created_at')
+            ->get()
+            ->map(fn($q) => $q->toApiArray())
+            ->toArray();
+    }
+
+    public function getStats(Carbon $start, Carbon $end): array
+    {
+        $queries = AnalyzedQuery::inPeriod($start, $end);
+
+        $total = $queries->count();
+        $slowCount = (clone $queries)->slow()->count();
+        $times = (clone $queries)->pluck('time');
+
+        return [
+            'total_queries' => $total,
+            'slow_queries' => $slowCount,
+            'avg_time' => $times->avg() ?? 0,
+            'max_time' => $times->max() ?? 0,
+            'total_time' => $times->sum(),
+            'n_plus_one_count' => (clone $queries)->nPlusOne()->count(),
+            'issue_count' => (clone $queries)->withIssues()->count(),
+        ];
+    }
+
+    public function getTopQueries(string $type, string $period, int $limit = 10): array
+    {
+        // Try to get pre-computed rankings first
+        $periodStart = TopQuery::getPeriodStart($period);
+        $precomputed = TopQuery::byRankingType($type)
+            ->byPeriod($period)
+            ->forPeriodStart($periodStart)
+            ->topN($limit)
+            ->get();
+
+        if ($precomputed->isNotEmpty()) {
+            return $precomputed->toArray();
+        }
+
+        // Fall back to computing on-the-fly
+        return $this->computeTopQueries($type, $period, $limit);
+    }
+
+    public function getAggregates(string $periodType, Carbon $start, Carbon $end): array
+    {
+        return QueryAggregate::where('period_type', $periodType)
+            ->inRange($start, $end)
+            ->orderBy('period_start')
+            ->get()
+            ->toArray();
+    }
+
+    public function storeRequest(string $requestId, array $data): void
+    {
+        AnalyzedRequest::updateOrCreate(
+            ['id' => $requestId],
+            array_merge($data, ['created_at' => now()])
+        );
+    }
+
+    public function getRequests(int $limit = 100, array $filters = []): array
+    {
+        $query = AnalyzedRequest::query()->orderByDesc('created_at');
+
+        if (!empty($filters['method'])) {
+            $query->byMethod($filters['method']);
+        }
+
+        if (!empty($filters['path'])) {
+            $query->byPath($filters['path']);
+        }
+
+        if (!empty($filters['slow_only'])) {
+            $query->withSlowQueries();
+        }
+
+        return $query->limit($limit)
+            ->get()
+            ->map(function ($request) {
+                return [
+                    'request_id' => $request->id,
+                    'method' => $request->method,
+                    'path' => $request->path,
+                    'timestamp' => $request->created_at?->timestamp ?? time(),
+                    'query_count' => $request->query_count,
+                    'slow_count' => $request->slow_count,
+                    'avg_time' => $request->avg_time,
+                ];
+            })
+            ->toArray();
+    }
+
+    public function getQueriesSince(float $since, int $limit = 100): array
+    {
+        return AnalyzedQuery::where('created_at', '>', Carbon::createFromTimestamp($since))
+            ->orderByDesc('created_at')
+            ->limit($limit)
+            ->get()
+            ->map(fn($q) => $q->toApiArray())
+            ->toArray();
+    }
+
+    public function supportsPersistence(): bool
+    {
+        return true;
+    }
+
+    protected function ensureRequestExists(string $requestId, array $query): void
+    {
+        if (!AnalyzedRequest::find($requestId)) {
+            AnalyzedRequest::create([
+                'id' => $requestId,
+                'method' => $query['request_method'] ?? 'GET',
+                'path' => $query['request_path'] ?? '/',
+                'created_at' => now(),
+            ]);
+        }
+    }
+
+    protected function updateRequestAggregates(string $requestId): void
+    {
+        $request = AnalyzedRequest::find($requestId);
+        if ($request) {
+            $request->updateAggregates();
+        }
+    }
+
+    protected function countSimilarQueries(string $requestId, string $sqlHash): int
+    {
+        return AnalyzedQuery::where('request_id', $requestId)
+            ->where('sql_hash', $sqlHash)
+            ->count();
+    }
+
+    protected function computeTopQueries(string $type, string $period, int $limit): array
+    {
+        $cutoff = match ($period) {
+            'hour' => now()->subHour(),
+            'day' => now()->subDay(),
+            'week' => now()->subWeek(),
+            default => now()->subDay(),
+        };
+
+        $query = AnalyzedQuery::where('created_at', '>=', $cutoff)
+            ->selectRaw('sql_hash, MIN(sql) as sql_sample, COUNT(*) as count,
+                         AVG(time) as avg_time, MAX(time) as max_time, SUM(time) as total_time,
+                         SUM(CASE WHEN JSON_LENGTH(analysis, "$.issues") > 0 THEN 1 ELSE 0 END) as issue_count')
+            ->groupBy('sql_hash');
+
+        $orderBy = match ($type) {
+            'slowest' => 'avg_time DESC',
+            'most_frequent' => 'count DESC',
+            'most_issues' => 'issue_count DESC',
+            default => 'total_time DESC',
+        };
+
+        return $query->orderByRaw($orderBy)
+            ->limit($limit)
+            ->get()
+            ->map(function ($row, $index) {
+                return [
+                    'sql_hash' => $row->sql_hash,
+                    'sql_sample' => $row->sql_sample,
+                    'count' => $row->count,
+                    'avg_time' => (float) $row->avg_time,
+                    'max_time' => (float) $row->max_time,
+                    'total_time' => (float) $row->total_time,
+                    'issue_count' => (int) $row->issue_count,
+                    'rank' => $index + 1,
+                ];
+            })
+            ->toArray();
+    }
+}

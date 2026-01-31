@@ -1,20 +1,25 @@
 <?php
 
-namespace Laravel\QueryAnalyzer\Http\Controllers;
+namespace Coderflex\QueryLens\Http\Controllers;
 
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\View\View;
-use Laravel\QueryAnalyzer\QueryAnalyzer;
+use Coderflex\QueryLens\Contracts\QueryStorage;
+use Coderflex\QueryLens\QueryAnalyzer;
+use Coderflex\QueryLens\Services\AggregationService;
 
-class QueryAnalyzerController extends Controller
+class QueryLensController extends Controller
 {
     protected QueryAnalyzer $analyzer;
+    protected QueryStorage $storage;
 
-    public function __construct(QueryAnalyzer $analyzer)
+    public function __construct(QueryAnalyzer $analyzer, QueryStorage $storage)
     {
         $this->analyzer = $analyzer;
+        $this->storage = $storage;
     }
 
     public function explain(Request $request): JsonResponse
@@ -63,7 +68,7 @@ class QueryAnalyzerController extends Controller
         if ($supportsAnalyze && !empty($analyzeResult)) {
             try {
                 $rawAnalyze = (string) (reset($analyzeResult[0]) ?: '');
-                $deepAnalyzer = new \Laravel\QueryAnalyzer\ExplainAnalyzer\ExplainAnalyzer();
+                $deepAnalyzer = new \Coderflex\QueryLens\ExplainAnalyzer\ExplainAnalyzer();
                 $analysisResult = $deepAnalyzer->analyze($rawAnalyze);
                 
                 // 1. Get the full human-readable explanation
@@ -76,7 +81,7 @@ class QueryAnalyzerController extends Controller
 
                 // 2. Enhance Summary and Insights using the deep analysis
                 // We overwrite the basic summary with the one from our analyzer
-                $summaryGenerator = new \Laravel\QueryAnalyzer\ExplainAnalyzer\Formatter\CompactFormatter();
+                $summaryGenerator = new \Coderflex\QueryLens\ExplainAnalyzer\Formatter\CompactFormatter();
                 // Extract just the summary line from compact formatter (it's the first line)
                 $compactStats = explode("\n", $summaryGenerator->format($analysisResult))[0] ?? '';
                 
@@ -209,7 +214,7 @@ class QueryAnalyzerController extends Controller
     {
         $response = response()->view('query-analyzer::dashboard', [
             'stats' => $this->analyzer->getStats(),
-            'isEnabled' => config('query-analyzer.enabled', false),
+            'isEnabled' => config('query-lens.enabled', false),
         ]);
         
         return $this->noCacheResponse($response); // Force browser to reload JS
@@ -304,7 +309,7 @@ class QueryAnalyzerController extends Controller
 
         // Legacy slow_only filter
         if ($request->has('slow_only') && $request->boolean('slow_only')) {
-            $slowThreshold = config('query-analyzer.performance_thresholds.slow', 1.0);
+            $slowThreshold = config('query-lens.performance_thresholds.slow', 1.0);
             $queries = $queries->where('time', '>', $slowThreshold);
         }
 
@@ -401,6 +406,143 @@ class QueryAnalyzerController extends Controller
             'data' => $queries->toArray(),
             'stats' => $this->analyzer->getStats(),
             'filename' => 'query-analysis-' . date('Y-m-d-H-i-s') . '.json'
+        ]);
+    }
+
+    // ==================== V2 API Endpoints ====================
+
+    public function trends(Request $request): JsonResponse
+    {
+        $start = $request->query('start')
+            ? Carbon::parse($request->query('start'))
+            : now()->subDay();
+        $end = $request->query('end')
+            ? Carbon::parse($request->query('end'))
+            : now();
+        $granularity = $request->query('granularity', 'hour');
+
+        $aggregationService = app(AggregationService::class);
+        $aggregationService->setStorage($this->storage);
+        $trends = $aggregationService->getPerformanceTrends($granularity, $start, $end);
+
+        return $this->noCacheResponse(response()->json($trends));
+    }
+
+    public function topQueries(Request $request): JsonResponse
+    {
+        $type = $request->query('type', 'slowest');
+        $period = $request->query('period', 'day');
+        $limit = (int) $request->query('limit', 10);
+
+        $topQueries = $this->storage->getTopQueries($type, $period, $limit);
+
+        return $this->noCacheResponse(response()->json([
+            'queries' => $topQueries,
+            'type' => $type,
+            'period' => $period,
+        ]));
+    }
+
+    public function requestWaterfall(Request $request, string $id): JsonResponse
+    {
+        $queries = $this->storage->getByRequest($id);
+
+        if (empty($queries)) {
+            return response()->json(['error' => 'Request not found'], 404);
+        }
+
+        // Build timeline data
+        $minTimestamp = min(array_column($queries, 'timestamp'));
+        $timelineData = [];
+
+        foreach ($queries as $index => $query) {
+            $startMs = (($query['timestamp'] ?? 0) - ($query['time'] ?? 0) - $minTimestamp) * 1000;
+            $endMs = (($query['timestamp'] ?? 0) - $minTimestamp) * 1000;
+
+            $timelineData[] = [
+                'index' => $index + 1,
+                'type' => $query['analysis']['type'] ?? 'OTHER',
+                'start_ms' => max(0, $startMs),
+                'end_ms' => $endMs,
+                'duration_ms' => ($query['time'] ?? 0) * 1000,
+                'sql_preview' => substr($query['sql'] ?? '', 0, 100),
+                'is_slow' => $query['analysis']['performance']['is_slow'] ?? false,
+            ];
+        }
+
+        return $this->noCacheResponse(response()->json([
+            'request_id' => $id,
+            'queries' => $queries,
+            'timeline_data' => $timelineData,
+            'total_queries' => count($queries),
+            'total_time' => array_sum(array_column($queries, 'time')),
+        ]));
+    }
+
+    public function overview(): JsonResponse
+    {
+        $aggregationService = app(AggregationService::class);
+        $overview = $aggregationService->getOverviewStats();
+
+        return $this->noCacheResponse(response()->json($overview));
+    }
+
+    public function poll(Request $request): JsonResponse
+    {
+        $since = (float) $request->query('since', 0);
+
+        $newQueries = $this->storage->getQueriesSince($since, 50);
+        $stats = $this->analyzer->getStats();
+
+        // Get recent alerts if using database storage
+        $alerts = [];
+        if ($this->storage->supportsPersistence()) {
+            $alertService = app(\Coderflex\QueryLens\Services\AlertService::class);
+            $alerts = $alertService->getRecentAlerts(1, 10);
+        }
+
+        return $this->noCacheResponse(response()->json([
+            'new_queries' => $newQueries,
+            'stats' => $stats,
+            'alerts' => $alerts,
+            'timestamp' => microtime(true),
+        ]));
+    }
+
+    public function requestsV2(Request $request): JsonResponse
+    {
+        $limit = (int) $request->query('limit', 100);
+        $filters = [];
+
+        if ($method = $request->query('method')) {
+            $filters['method'] = $method;
+        }
+
+        if ($path = $request->query('path')) {
+            $filters['path'] = $path;
+        }
+
+        if ($request->boolean('slow_only')) {
+            $filters['slow_only'] = true;
+        }
+
+        $requests = $this->storage->getRequests($limit, $filters);
+
+        return $this->noCacheResponse(response()->json([
+            'requests' => $requests,
+        ]));
+    }
+
+    public function storageInfo(): JsonResponse
+    {
+        $retentionService = app(\Coderflex\QueryLens\Services\DataRetentionService::class);
+
+        return response()->json([
+            'driver' => config('query-lens.storage.driver', 'cache'),
+            'supports_persistence' => $this->storage->supportsPersistence(),
+            'stats' => $this->storage->supportsPersistence()
+                ? $retentionService->getStorageStats()
+                : null,
         ]);
     }
 }

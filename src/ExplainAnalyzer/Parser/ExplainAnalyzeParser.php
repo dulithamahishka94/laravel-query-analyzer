@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Laravel\QueryAnalyzer\ExplainAnalyzer\Parser;
+namespace Coderflex\QueryLens\ExplainAnalyzer\Parser;
 
-use Laravel\QueryAnalyzer\ExplainAnalyzer\Nodes\OperationNode;
+use Coderflex\QueryLens\ExplainAnalyzer\Nodes\OperationNode;
 
 /**
  * Parses MySQL EXPLAIN ANALYZE output into a structured tree of operation nodes.

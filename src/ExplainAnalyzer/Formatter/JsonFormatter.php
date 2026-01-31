@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Laravel\QueryAnalyzer\ExplainAnalyzer\Formatter;
+namespace Coderflex\QueryLens\ExplainAnalyzer\Formatter;
 
-use Laravel\QueryAnalyzer\ExplainAnalyzer\Analyzer\AnalysisResult;
+use Coderflex\QueryLens\ExplainAnalyzer\Analyzer\AnalysisResult;
 
 /**
  * Formats analysis results as JSON.

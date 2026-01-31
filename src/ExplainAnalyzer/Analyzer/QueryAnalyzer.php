@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Laravel\QueryAnalyzer\ExplainAnalyzer\Analyzer;
+namespace Coderflex\QueryLens\ExplainAnalyzer\Analyzer;
 
-use Laravel\QueryAnalyzer\ExplainAnalyzer\Nodes\OperationNode;
-use Laravel\QueryAnalyzer\ExplainAnalyzer\Issues\Issue;
-use Laravel\QueryAnalyzer\ExplainAnalyzer\Issues\IssueType;
-use Laravel\QueryAnalyzer\ExplainAnalyzer\Issues\IssueSeverity;
+use Coderflex\QueryLens\ExplainAnalyzer\Nodes\OperationNode;
+use Coderflex\QueryLens\ExplainAnalyzer\Issues\Issue;
+use Coderflex\QueryLens\ExplainAnalyzer\Issues\IssueType;
+use Coderflex\QueryLens\ExplainAnalyzer\Issues\IssueSeverity;
 
 /**
  * Analyzes parsed execution plan nodes to identify performance issues.

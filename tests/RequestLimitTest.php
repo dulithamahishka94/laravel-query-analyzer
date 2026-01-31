@@ -1,17 +1,17 @@
 <?php
 
-namespace Laravel\QueryAnalyzer\Tests;
+namespace Coderflex\QueryLens\Tests;
 
 use Orchestra\Testbench\TestCase;
-use Laravel\QueryAnalyzer\QueryAnalyzer;
-use Laravel\QueryAnalyzer\Storage\CacheQueryStorage;
+use Coderflex\QueryLens\QueryAnalyzer;
+use Coderflex\QueryLens\Storage\CacheQueryStorage;
 use Illuminate\Support\Facades\Cache;
 
 class RequestLimitTest extends TestCase
 {
     protected function getEnvironmentSetUp($app)
     {
-        $app['config']->set('query-analyzer.store', 'array');
+        $app['config']->set('query-lens.store', 'array');
     }
 
     public function test_it_returns_all_requests_within_storage_limit()

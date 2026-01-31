@@ -1,13 +1,18 @@
 <?php
 
-namespace Laravel\QueryAnalyzer\Tests;
+namespace Coderflex\QueryLens\Tests;
 
-use Laravel\QueryAnalyzer\QueryAnalyzer;
-use PHPUnit\Framework\TestCase;
+use Coderflex\QueryLens\QueryAnalyzer;
+use Orchestra\Testbench\TestCase;
 
 class QueryAnalyzerTest extends TestCase
 {
     protected QueryAnalyzer $analyzer;
+
+    protected function getPackageProviders($app): array
+    {
+        return [\Coderflex\QueryLens\QueryLensServiceProvider::class];
+    }
 
     protected function setUp(): void
     {
@@ -18,7 +23,7 @@ class QueryAnalyzerTest extends TestCase
                 'moderate' => 0.5,
                 'slow' => 1.0,
             ]
-        ], new \Laravel\QueryAnalyzer\Tests\Fakes\InMemoryQueryStorage());
+        ], new \Coderflex\QueryLens\Tests\Fakes\InMemoryQueryStorage());
     }
 
     public function test_it_can_record_queries(): void
@@ -106,7 +111,7 @@ class QueryAnalyzerTest extends TestCase
         $stats = $this->analyzer->getStats();
 
         $this->assertEquals(3, $stats['total_queries']);
-        $this->assertEquals(1.65, $stats['total_time']);
+        $this->assertEqualsWithDelta(1.65, $stats['total_time'], 0.0001);
         $this->assertEqualsWithDelta(0.55, $stats['average_time'], 0.0001);
         $this->assertEquals(1, $stats['slow_queries']);
         $this->assertArrayHasKey('SELECT', $stats['query_types']);
@@ -125,11 +130,11 @@ class QueryAnalyzerTest extends TestCase
     public function test_it_ignores_internal_cache_queries_with_bindings(): void
     {
         // SQL string with marker (already handled previously)
-        $this->analyzer->recordQuery('SELECT * FROM cache WHERE key = "laravel_query_analyzer_queries_v3"', [], 0.05);
+        $this->analyzer->recordQuery('SELECT * FROM cache WHERE key = "laravel_query_lens_queries_v3"', [], 0.05);
         $this->assertCount(0, $this->analyzer->getQueries());
 
         // Marker in bindings (the new fix)
-        $this->analyzer->recordQuery('SELECT * FROM cache WHERE key = ?', ['laravel_query_analyzer_queries_v3'], 0.05);
+        $this->analyzer->recordQuery('SELECT * FROM cache WHERE key = ?', ['laravel_query_lens_queries_v3'], 0.05);
         $this->assertCount(0, $this->analyzer->getQueries());
 
         // Normal query should still work
@@ -151,9 +156,9 @@ class QueryAnalyzerTest extends TestCase
         // 2. Record the EXACT SAME query again
         $this->analyzer->recordQuery('SELECT * FROM users', [], 0.05);
         $queries = $this->analyzer->getQueries();
-        
+
         $this->assertCount(2, $queries);
-        
+
         // Ensure IDs are unique even for identical SQL
         $ids = $queries->pluck('id')->unique();
         $this->assertCount(2, $ids, 'IDs should be unique even for identical queries');

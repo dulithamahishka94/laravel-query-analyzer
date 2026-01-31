@@ -1,8 +1,8 @@
 <?php
 
-namespace Laravel\QueryAnalyzer\Tests;
+namespace Coderflex\QueryLens\Tests;
 
-use Laravel\QueryAnalyzer\QueryAnalyzer;
+use Coderflex\QueryLens\QueryAnalyzer;
 use PHPUnit\Framework\TestCase;
 
 class AdvancedRecommendationsTest extends TestCase
@@ -14,7 +14,7 @@ class AdvancedRecommendationsTest extends TestCase
         parent::setUp();
         $this->analyzer = new QueryAnalyzer([
             'performance_thresholds' => ['slow' => 1.0]
-        ], new \Laravel\QueryAnalyzer\Tests\Fakes\InMemoryQueryStorage());
+        ], new \Coderflex\QueryLens\Tests\Fakes\InMemoryQueryStorage());
     }
 
     public function test_it_detects_random_order()

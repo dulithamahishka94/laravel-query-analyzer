@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Laravel\QueryAnalyzer\ExplainAnalyzer\Issues;
+namespace Coderflex\QueryLens\ExplainAnalyzer\Issues;
 
-use Laravel\QueryAnalyzer\ExplainAnalyzer\Nodes\OperationNode;
+use Coderflex\QueryLens\ExplainAnalyzer\Nodes\OperationNode;
 
 /**
  * Represents a detected issue in the execution plan.

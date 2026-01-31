@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Laravel\QueryAnalyzer\ExplainAnalyzer;
+namespace Coderflex\QueryLens\ExplainAnalyzer;
 
-use Laravel\QueryAnalyzer\ExplainAnalyzer\Parser\ExplainAnalyzeParser;
-use Laravel\QueryAnalyzer\ExplainAnalyzer\Analyzer\QueryAnalyzer;
-use Laravel\QueryAnalyzer\ExplainAnalyzer\Analyzer\AnalysisResult;
-use Laravel\QueryAnalyzer\ExplainAnalyzer\Formatter\HumanExplainer;
+use Coderflex\QueryLens\ExplainAnalyzer\Parser\ExplainAnalyzeParser;
+use Coderflex\QueryLens\ExplainAnalyzer\Analyzer\QueryAnalyzer;
+use Coderflex\QueryLens\ExplainAnalyzer\Analyzer\AnalysisResult;
+use Coderflex\QueryLens\ExplainAnalyzer\Formatter\HumanExplainer;
 
 /**
  * Main entry point for MySQL EXPLAIN ANALYZE analysis.
