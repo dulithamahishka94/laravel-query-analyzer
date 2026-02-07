@@ -40,7 +40,7 @@ class AlertLog extends Model
         return $this->belongsTo(Alert::class, 'alert_id');
     }
 
-    public function query(): BelongsTo
+    public function analyzedQuery(): BelongsTo
     {
         return $this->belongsTo(AnalyzedQuery::class, 'query_id');
     }

@@ -34,10 +34,7 @@ class QueryLensServiceProvider extends ServiceProvider
             if ($driver === 'database') {
                 $storage = new DatabaseQueryStorage();
 
-                // Inject alert service if alerts are enabled
-                if (config('query-lens.alerts.enabled', false)) {
-                    $storage->setAlertService($app->make(AlertService::class));
-                }
+                $storage->setAlertService($app->make(AlertService::class));
 
                 return $storage;
             }

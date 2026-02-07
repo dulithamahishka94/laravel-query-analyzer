@@ -111,10 +111,10 @@ return [
     |
     */
     'storage' => [
-        'driver' => env('QUERY_LENS_STORAGE', 'cache'), // 'cache' or 'database'
+        'driver' => env('QUERY_LENS_STORAGE', 'database'), // 'cache' or 'database'
         'connection' => env('QUERY_LENS_DB_CONNECTION', null), // null = default connection
         'table_prefix' => 'query_lens_',
-        'retention_days' => env('QUERY_LENS_RETENTION_DAYS', 7),
+        'retention_days' => env('QUERY_LENS_RETENTION_DAYS', 365),
     ],
 
     /*

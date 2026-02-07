@@ -5,6 +5,7 @@ namespace Coderflex\QueryLens;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Coderflex\QueryLens\Contracts\QueryStorage;
+use Coderflex\QueryLens\Models\AnalyzedQuery;
 
 class QueryAnalyzer
 {
@@ -12,11 +13,17 @@ class QueryAnalyzer
     protected QueryStorage $storage;
     protected ?string $requestId = null;
     protected array $queryStructures = [];
+    protected bool $enabled = true;
 
     public function __construct(array $config, QueryStorage $storage)
     {
         $this->config = $config;
         $this->storage = $storage;
+    }
+
+    public function disableRecording(): void
+    {
+        $this->enabled = false;
     }
 
     public function setRequestId(string $id): void
@@ -32,6 +39,10 @@ class QueryAnalyzer
 
     public function recordQuery(string $sql, array $bindings = [], float $time = 0.0, string $connection = 'default'): void
     {
+        if (!$this->enabled) {
+            return;
+        }
+
         // 1. Ignore queries related to the analyzer's own cache storage
         if (str_contains($sql, 'laravel_query_lens_queries_v3')) {
             return;
@@ -63,7 +74,7 @@ class QueryAnalyzer
         // Track query structure for N+1 detection
         $structureHash = $this->getStructureHash($sql);
         $this->queryStructures[$structureHash] = ($this->queryStructures[$structureHash] ?? 0) + 1;
-        $isPotentialNPlusOne = $this->queryStructures[$structureHash] > 5;
+        $isPotentialNPlusOne = $this->queryStructures[$structureHash] > 1;
 
         $query = [
             'id' => (string) Str::orderedUuid(),
@@ -135,9 +146,7 @@ class QueryAnalyzer
 
     protected function getStructureHash(string $sql): string
     {
-        // Remove literal numbers, strings between quotes to get "structure"
-        $structure = preg_replace(['/\d+/', '/\'[^\']*\'/', '/"[^"]*"/'], ['?', '?', '?'], $sql);
-        return md5($structure);
+        return md5(AnalyzedQuery::normalizeSql($sql));
     }
 
     protected function findOrigin(): array

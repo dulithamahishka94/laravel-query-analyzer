@@ -14,6 +14,7 @@
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #0f172a; }
         .font-mono { font-family: 'JetBrains Mono', monospace; }
+        .text-xs { font-size: 0.90rem !important; }
 
         /* Markdown Content Styles */
         .markdown-content ul { list-style-type: disc; padding-left: 1.5em; margin-bottom: 0.5em; }
@@ -475,49 +476,54 @@
 
                 <!-- Tabs -->
                 <div class="px-6 py-3 bg-slate-900/30 border-b border-slate-800">
-                    <div class="tabs-container">
-                        <button class="tab active" data-tab="trends" onclick="switchTab('trends')">
-                            <svg class="tab-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path>
-                            </svg>
-                            <span>Trends</span>
-                        </button>
-                        <button class="tab" data-tab="top-queries" onclick="switchTab('top-queries')">
-                            <svg class="tab-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
-                            </svg>
-                            <span>Top Queries</span>
-                        </button>
-                        <button class="tab" data-tab="queries" onclick="switchTab('queries')">
-                            <svg class="tab-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"></path>
-                            </svg>
-                            <span>Query List</span>
-                        </button>
-                        <button class="tab" data-tab="waterfall" onclick="switchTab('waterfall')">
-                            <svg class="tab-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-                            </svg>
-                            <span>Waterfall</span>
-                        </button>
-                        <button class="tab" data-tab="alerts" onclick="switchTab('alerts')">
-                            <svg class="tab-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
-                            </svg>
-                            <span>Alerts</span>
-                        </button>
+                    <div class="tabs-container flex items-center justify-between">
+                        <div class="flex items-center space-x-1">
+                            <button class="tab" data-tab="queries" onclick="switchTab('queries')">
+                                <svg class="tab-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"></path>
+                                </svg>
+                                <span>Query List</span>
+                            </button>
+                            <button class="tab" data-tab="waterfall" onclick="switchTab('waterfall')">
+                                <svg class="tab-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                <span>Waterfall</span>
+                            </button>
+                            <button class="tab" data-tab="alerts" onclick="switchTab('alerts')">
+                                <svg class="tab-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+                                </svg>
+                                <span>Alerts</span>
+                            </button>
+                        </div>
+                        <div class="flex items-center space-x-1">
+                            <button class="tab active" data-tab="trends" onclick="switchTab('trends')">
+                                <svg class="tab-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path>
+                                </svg>
+                                <span>Trends</span>
+                            </button>
+                            <button class="tab" data-tab="top-queries" onclick="switchTab('top-queries')">
+                                <svg class="tab-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+                                </svg>
+                                <span>Top Queries</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
                 <!-- Tab Content -->
-                <div class="flex-1 overflow-y-auto p-6">
+                <div class="flex-1 overflow-hidden p-6 flex flex-col">
                     <!-- Trends Tab -->
-                    <div id="tab-trends" class="tab-content">
+                    <div id="tab-trends" class="tab-content h-full overflow-y-auto">
                         <div class="card">
                             <div class="card-header">
                                 <span class="card-title">Performance Over Time</span>
                                 <div class="flex items-center gap-2">
-                                    <button onclick="setGranularity('hour')" class="granularity-btn px-3 py-1 text-xs rounded bg-indigo-500/20 text-indigo-400" data-granularity="hour">Hourly</button>
+                                    <button onclick="setGranularity('minute')" class="granularity-btn px-3 py-1 text-xs rounded bg-slate-700 text-slate-400" data-granularity="minute">Minute</button>
+                                    <button onclick="setGranularity('hour')" class="granularity-btn px-3 py-1 text-xs rounded bg-slate-700 text-slate-400" data-granularity="hour">Hourly</button>
                                     <button onclick="setGranularity('day')" class="granularity-btn px-3 py-1 text-xs rounded bg-slate-700 text-slate-400" data-granularity="day">Daily</button>
                                 </div>
                             </div>
@@ -537,7 +543,7 @@
                     </div>
 
                     <!-- Top Queries Tab -->
-                    <div id="tab-top-queries" class="tab-content hidden">
+                    <div id="tab-top-queries" class="tab-content hidden h-full overflow-y-auto">
                         <div class="grid grid-cols-2 gap-4">
                             <!-- Slowest Queries -->
                             <div class="card">
@@ -576,14 +582,14 @@
                     </div>
 
                     <!-- Query List Tab -->
-                    <div id="tab-queries" class="tab-content hidden">
-                        <div class="card">
+                    <div id="tab-queries" class="tab-content hidden h-full flex flex-col">
+                        <div class="card h-full flex flex-col">
                             <div class="card-header">
                                 <span class="card-title">Query List</span>
                                 <span class="text-xs text-slate-500" id="queries-info">Select a request to view queries</span>
                             </div>
-                            <div class="card-body p-0">
-                                <div id="query-list" class="divide-y divide-slate-700/50 max-h-[600px] overflow-y-auto">
+                            <div class="card-body p-0 flex-1 min-h-0 relative">
+                                <div id="query-list" class="absolute inset-0 overflow-y-auto divide-y divide-slate-700/50">
                                     <div class="p-8 text-center text-slate-500">
                                         <svg class="w-12 h-12 mx-auto mb-3 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"></path>
@@ -596,7 +602,7 @@
                     </div>
 
                     <!-- Waterfall Tab -->
-                    <div id="tab-waterfall" class="tab-content hidden">
+                    <div id="tab-waterfall" class="tab-content hidden h-full overflow-y-auto">
                         <!-- Summary Stats -->
                         <div id="waterfall-stats" class="hidden grid grid-cols-4 gap-4 mb-4">
                             <div class="bg-slate-800/50 rounded-lg p-4 border border-slate-700/50">
@@ -703,7 +709,7 @@
                     </div>
 
                     <!-- Alerts Tab -->
-                    <div id="tab-alerts" class="tab-content hidden">
+                    <div id="tab-alerts" class="tab-content hidden h-full overflow-y-auto">
                         <div class="grid grid-cols-3 gap-4">
                             <!-- Alert Configuration -->
                             <div class="col-span-2 card">
@@ -908,7 +914,7 @@
             currentRequestId: null,
             currentQueries: [],
             currentTab: 'trends',
-            granularity: 'hour',
+            granularity: 'minute',
             pollInterval: {{ config('query-lens.dashboard.poll_interval', 5000) }},
             lastPollTimestamp: 0,
             charts: {
@@ -921,6 +927,7 @@
 
         // ==================== Initialization ====================
         document.addEventListener('DOMContentLoaded', async () => {
+            updateGranularityButtons();
             await Promise.all([
                 loadStorageInfo(),
                 loadOverviewStats(),
@@ -998,33 +1005,46 @@
         // ==================== Overview Stats ====================
         async function loadOverviewStats() {
             try {
-                const res = await fetch('/query-lens/api/v2/stats/overview');
+                const period = document.getElementById('period-select').value;
+                const res = await fetch(`/query-lens/api/v2/stats/overview?period=${period}`);
                 const data = await res.json();
 
                 const today = data.today || {};
                 const comparison = data.comparison || {};
+                const label = getPeriodLabel(period);
 
                 document.getElementById('stat-total').textContent = formatNumber(today.total_queries || 0);
                 document.getElementById('stat-slow').textContent = formatNumber(today.slow_queries || 0);
                 document.getElementById('stat-avg').textContent = formatMs(today.avg_time || 0);
                 document.getElementById('stat-p95').textContent = formatMs(today.p95_time || 0);
 
-                updateStatChange('stat-total-change', comparison.queries);
-                updateStatChange('stat-slow-change', comparison.slow);
-                updateStatChange('stat-avg-change', comparison.avg_time, true);
+                updateStatChange('stat-total-change', comparison.queries, label);
+                updateStatChange('stat-slow-change', comparison.slow, label);
+                updateStatChange('stat-avg-change', comparison.avg_time, label, true);
+                updateStatChange('stat-p95-change', comparison.p95, label, true);
             } catch (e) {
                 console.error('Error loading overview:', e);
             }
         }
 
-        function updateStatChange(elementId, change, invertGood = false) {
+        function getPeriodLabel(period) {
+            switch(period) {
+                case '1h': return 'vs last hour';
+                case '7d': return 'vs last week';
+                case '30d': return 'vs last month';
+                case '24h':
+                default: return 'vs yesterday';
+            }
+        }
+
+        function updateStatChange(elementId, change, label, invertGood = false) {
             const el = document.getElementById(elementId);
             if (!change) return;
 
             const icon = change.direction === 'up' ? '&uarr;' : change.direction === 'down' ? '&darr;' : '';
             const isGood = invertGood ? change.direction === 'down' : change.direction !== 'up';
 
-            el.innerHTML = `<span>${icon} ${change.value}%</span> <span class="text-slate-500">vs yesterday</span>`;
+            el.innerHTML = `<span>${icon} ${change.value}%</span> <span class="text-slate-500">${label}</span>`;
             el.className = `stat-change ${isGood ? (change.direction === 'neutral' ? 'neutral' : 'down') : 'up'}`;
         }
 
@@ -1069,36 +1089,64 @@
 
             const options = {
                 series: [
-                    { name: 'P50 Latency', data: data.p50 || [] },
-                    { name: 'P95 Latency', data: data.p95 || [] },
-                    { name: 'P99 Latency', data: data.p99 || [] }
+                    { name: 'Avg Latency', type: 'line', data: data.latency },
+                    { name: 'P95 Latency', type: 'line', data: data.p95 },
+                    { name: 'Throughput', type: 'line', data: data.throughput }
                 ],
                 chart: {
                     type: 'line',
-                    height: 350,
-                    background: 'transparent',
+                    height: 300,
                     toolbar: { show: false },
-                    animations: { enabled: true, easing: 'easeinout' }
+                    background: 'transparent',
+                    animations: { enabled: false }
                 },
                 colors: ['#818cf8', '#f59e0b', '#ef4444'],
                 stroke: { curve: 'smooth', width: 2 },
+                markers: { size: 4, hover: { size: 6 }, strokeWidth: 0 },
                 xaxis: {
                     categories: data.labels || [],
                     labels: { style: { colors: '#64748b' } },
                     axisBorder: { show: false },
                     axisTicks: { show: false }
                 },
-                yaxis: {
-                    labels: {
-                        style: { colors: '#64748b' },
-                        formatter: v => v ? v.toFixed(1) + 'ms' : '0ms'
+                yaxis: [
+                    {
+                        seriesName: 'Avg Latency',
+                        labels: {
+                            style: { colors: '#818cf8' },
+                            formatter: v => v ? v.toFixed(1) + 'ms' : '0ms'
+                        },
+                        title: {
+                            text: 'Latency (ms)',
+                            style: { color: '#818cf8', fontSize: '12px' }
+                        }
+                    },
+                    {
+                        seriesName: 'P95 Latency',
+                        show: false
+                    },
+                    {
+                        opposite: true,
+                        seriesName: 'Throughput',
+                        labels: {
+                            style: { colors: '#ef4444' },
+                            formatter: v => v ? Math.round(v) : '0'
+                        },
+                        title: {
+                            text: 'Queries',
+                            style: { color: '#ef4444', fontSize: '12px' }
+                        }
                     }
-                },
+                ],
                 grid: { borderColor: '#334155', strokeDashArray: 4 },
                 legend: { labels: { colors: '#94a3b8' } },
                 tooltip: {
                     theme: 'dark',
-                    y: { formatter: v => v ? v.toFixed(2) + 'ms' : '0ms' }
+                    y: [
+                        { formatter: v => v ? v.toFixed(2) + 'ms' : '0ms' },
+                        { formatter: v => v ? v.toFixed(2) + 'ms' : '0ms' },
+                        { formatter: v => v ? Math.round(v) : '0' }
+                    ]
                 },
                 noData: {
                     text: 'No data available',
@@ -1116,12 +1164,17 @@
 
         function setGranularity(g) {
             state.granularity = g;
-            document.querySelectorAll('.granularity-btn').forEach(btn => {
-                btn.className = btn.dataset.granularity === g
-                    ? 'granularity-btn px-3 py-1 text-xs rounded bg-indigo-500/20 text-indigo-400'
-                    : 'granularity-btn px-3 py-1 text-xs rounded bg-slate-700 text-slate-400';
-            });
+            updateGranularityButtons();
             loadTrendsChart();
+        }
+
+        function updateGranularityButtons() {
+            document.querySelectorAll('.granularity-btn').forEach(btn => {
+                const isActive = btn.dataset.granularity === state.granularity;
+                btn.className = isActive
+                    ? 'granularity-btn px-3 py-1 text-xs rounded bg-indigo-500/20 text-indigo-400 font-semibold'
+                    : 'granularity-btn px-3 py-1 text-xs rounded bg-slate-800 text-slate-400 hover:bg-slate-700';
+            });
         }
 
         // ==================== Top Queries ====================
@@ -1131,40 +1184,44 @@
             const containerId = type === 'slowest' ? 'slowest-queries' : 'frequent-queries';
 
             try {
-                const res = await fetch(`/query-lens/api/v2/top-queries?type=${type}&period=${period}&limit=10`);
+                const res = await fetch(`/query-lens/api/v2/top-queries?type=${type}&period=${period}&limit=5`);
                 const data = await res.json();
-
-                renderTopQueries(containerId, data.queries || [], type);
+                renderTopQueries(data.queries, containerId);
             } catch (e) {
                 console.error('Error loading top queries:', e);
             }
         }
 
-        function renderTopQueries(containerId, queries, type) {
+        function renderTopQueries(queries, containerId) {
             const container = document.getElementById(containerId);
-
             if (!queries.length) {
                 container.innerHTML = '<div class="p-4 text-center text-slate-500 text-sm">No data available</div>';
                 return;
             }
 
             container.innerHTML = queries.map((q, i) => `
-                <div class="p-3 hover:bg-slate-800/50 cursor-pointer" onclick="showTopQueryDetail('${escapeHtml(q.sql_sample)}')">
+                <div class="p-3 hover:bg-slate-800/50 transition-colors cursor-pointer group" onclick="showTopQueryDetail('${escapeHtml(q.sql_sample)}')">
                     <div class="flex items-start justify-between gap-2 mb-1">
-                        <span class="text-xs font-mono text-slate-500">#${i + 1}</span>
-                        <div class="flex items-center gap-2">
-                            ${type === 'slowest'
-                                ? `<span class="text-xs font-medium text-amber-400">${(q.avg_time * 1000).toFixed(1)}ms avg</span>`
-                                : `<span class="text-xs font-medium text-indigo-400">${formatNumber(q.count)} calls</span>`
-                            }
+                        <div class="flex items-center gap-2 overflow-hidden">
+                            <span class="text-xs font-mono text-slate-500">#${i + 1}</span>
+                            <code class="text-xs font-mono text-indigo-300 truncate group-hover:text-indigo-200 transition-colors">
+                                ${escapeHtml(q.sql_sample)}
+                            </code>
+                        </div>
+                        <div class="flex-shrink-0 text-right">
+                            <div class="text-xs font-bold ${q.avg_time > 1 ? 'text-rose-400' : 'text-slate-300'}">
+                                ${formatMs(q.avg_time)}
+                            </div>
+                            <div class="text-[10px] text-slate-500">${formatNumber(q.count)} calls</div>
                         </div>
                     </div>
-                    <div class="font-mono text-xs text-slate-400 truncate">${escapeHtml(q.sql_sample.substring(0, 100))}</div>
-                    <div class="flex items-center gap-3 mt-1 text-[10px] text-slate-500">
-                        <span>Total: ${(q.total_time * 1000).toFixed(0)}ms</span>
-                        <span>Max: ${(q.max_time * 1000).toFixed(1)}ms</span>
-                        ${q.issue_count > 0 ? `<span class="text-rose-400">${q.issue_count} issues</span>` : ''}
-                    </div>
+                    ${q.issue_count > 0 ? `
+                        <div class="flex items-center gap-1 mt-1">
+                            <span class="text-[10px] px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                                ${q.issue_count} issue${q.issue_count > 1 ? 's' : ''} detected
+                            </span>
+                        </div>
+                    ` : ''}
                 </div>
             `).join('');
         }
@@ -1224,6 +1281,9 @@
             refreshRequests();
             loadQueriesForRequest(id);
             loadWaterfall(id);
+
+            // Switch to queries tab when a request is selected
+            switchTab('queries');
         }
 
         // ==================== Queries ====================
@@ -1280,10 +1340,15 @@
                         <div class="font-mono text-xs text-slate-400 truncate">${escapeHtml(q.sql)}</div>
                         ${q.origin?.file ? `
                             <div class="flex items-center gap-1 mt-2 text-[10px] ${isVendor ? 'text-slate-600' : 'text-indigo-400/70'}">
-                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path>
                                 </svg>
-                                <span class="truncate">${q.origin.file.split('/').slice(-2).join('/')}:${q.origin.line}</span>
+                                <span class="truncate mr-1" title="${q.origin.file}:${q.origin.line}">${q.origin.file.split('/').slice(-2).join('/')}:${q.origin.line}</span>
+                                <button onclick="copyToClipboard('${q.origin.file}:${q.origin.line}', event)" class="p-1 hover:bg-slate-700 rounded text-slate-500 hover:text-white transition-colors" title="Copy path">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path>
+                                    </svg>
+                                </button>
                             </div>
                         ` : ''}
                     </div>
@@ -1430,20 +1495,10 @@
             const isSlow = analysis.performance?.is_slow || false;
             const isNPlusOne = query.is_n_plus_one || issues.some(i => i.type === 'n+1');
 
-            // Get issue type colors
-            const getIssueColor = (type) => {
-                switch(type?.toLowerCase()) {
-                    case 'n+1': return 'purple';
-                    case 'security': return 'orange';
-                    case 'performance': return 'amber';
-                    default: return 'rose';
-                }
-            };
-
             document.getElementById('detail-content').innerHTML = `
-                <div class="space-y-4">
+                <div class="space-y-6">
                     <!-- Header with badges -->
-                    <div class="flex flex-wrap items-center gap-2">
+                    <div class="flex flex-wrap items-center gap-2 pb-2 border-b border-slate-800/50">
                         <span class="badge badge-${(analysis.type || 'other').toLowerCase()}">${analysis.type || 'QUERY'}</span>
                         ${isVendor
                             ? '<span class="badge-source badge-vendor"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>Vendor</span>'
@@ -1454,62 +1509,72 @@
                         <span class="badge perf-${analysis.performance?.rating || 'fast'} ml-auto">${(query.time * 1000).toFixed(3)}ms</span>
                     </div>
 
-                    <!-- SQL -->
-                    <div>
-                        <div class="flex items-center justify-between mb-2">
-                            <label class="text-xs font-medium text-slate-500 uppercase">SQL Statement</label>
+                    <!-- SQL Section -->
+                    <div class="bg-slate-800/40 rounded-xl border border-slate-700/50 overflow-hidden">
+                        <div class="px-4 py-3 border-b border-slate-700/50 flex items-center justify-between bg-slate-800/30">
+                            <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider">SQL Statement</h3>
                             ${analysis.type === 'SELECT' ? `
-                                <button onclick="runExplain('${query.id}')" class="px-2 py-1 bg-indigo-500/20 text-indigo-400 text-xs rounded hover:bg-indigo-500/30 transition-colors">
-                                    Run EXPLAIN
+                                <button onclick="runExplain('${query.id}')" class="px-2 py-1 bg-indigo-500/20 text-indigo-400 text-[10px] font-semibold rounded hover:bg-indigo-500/30 transition-colors border border-indigo-500/20">
+                                    RUN EXPLAIN
                                 </button>
                             ` : ''}
                         </div>
-                        <pre class="p-3 bg-slate-900 rounded-lg text-xs font-mono text-slate-300 overflow-x-auto whitespace-pre-wrap">${escapeHtml(query.sql)}</pre>
-                        <div id="explain-result-${query.id}" class="hidden mt-2"></div>
+                        <div class="p-4">
+                            <pre class="p-3 bg-slate-900 rounded-lg text-xs font-mono text-slate-300 overflow-x-auto whitespace-pre-wrap border border-slate-800">${escapeHtml(query.sql)}</pre>
+                            <div id="explain-result-${query.id}" class="hidden mt-4 pt-4 border-t border-slate-700/50"></div>
+                        </div>
                     </div>
 
                     <!-- Bindings -->
                     ${query.bindings && query.bindings.length ? `
-                        <div>
-                            <label class="text-xs font-medium text-slate-500 uppercase mb-2 block">Bindings (${query.bindings.length})</label>
-                            <div class="p-3 bg-slate-900 rounded-lg text-xs font-mono text-slate-300 overflow-x-auto">
-                                [${query.bindings.map(b => typeof b === 'string' ? `"${escapeHtml(b)}"` : b).join(', ')}]
+                        <div class="bg-slate-800/40 rounded-xl border border-slate-700/50 overflow-hidden">
+                            <div class="px-4 py-2 border-b border-slate-700/50 bg-slate-800/30">
+                                <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Bindings (${query.bindings.length})</h3>
+                            </div>
+                            <div class="p-4">
+                                <div class="p-3 bg-slate-900 rounded-lg text-xs font-mono text-slate-300 overflow-x-auto border border-slate-800">
+                                    [${query.bindings.map(b => typeof b === 'string' ? `"${escapeHtml(b)}"` : b).join(', ')}]
+                                </div>
                             </div>
                         </div>
                     ` : ''}
 
-                    <!-- Metadata Grid -->
+                    <!-- Performance & Context Grid -->
                     <div class="grid grid-cols-3 gap-3">
-                        <div class="p-3 bg-slate-900 rounded-lg">
-                            <label class="text-[10px] text-slate-500 uppercase">Connection</label>
-                            <div class="text-sm text-white mt-1">${query.connection || 'default'}</div>
+                        <div class="bg-slate-800/40 rounded-xl border border-slate-700/50 p-3 text-center">
+                            <label class="text-[10px] text-slate-500 uppercase font-semibold">Connection</label>
+                            <div class="text-sm font-medium text-white mt-1">${query.connection || 'default'}</div>
                         </div>
-                        <div class="p-3 bg-slate-900 rounded-lg">
-                            <label class="text-[10px] text-slate-500 uppercase">Complexity</label>
-                            <div class="text-sm text-white mt-1">${analysis.complexity?.level || 'N/A'} (${analysis.complexity?.score || 0})</div>
+                        <div class="bg-slate-800/40 rounded-xl border border-slate-700/50 p-3 text-center">
+                            <label class="text-[10px] text-slate-500 uppercase font-semibold">Complexity</label>
+                            <div class="text-sm font-medium text-white mt-1">${analysis.complexity?.level || 'N/A'} <span class="text-slate-500 text-xs">(${analysis.complexity?.score || 0})</span></div>
                         </div>
-                        <div class="p-3 bg-slate-900 rounded-lg">
-                            <label class="text-[10px] text-slate-500 uppercase">Performance</label>
-                            <div class="text-sm mt-1 ${isSlow ? 'text-rose-400' : 'text-emerald-400'}">${analysis.performance?.rating || 'fast'}</div>
+                        <div class="bg-slate-800/40 rounded-xl border border-slate-700/50 p-3 text-center">
+                            <label class="text-[10px] text-slate-500 uppercase font-semibold">Performance</label>
+                            <div class="text-sm font-medium mt-1 ${isSlow ? 'text-rose-400' : 'text-emerald-400'}">${analysis.performance?.rating || 'fast'}</div>
                         </div>
                     </div>
 
                     <!-- Origin -->
                     ${origin.file ? `
-                        <div>
-                            <div class="flex items-center justify-between mb-2">
-                                <label class="text-xs font-medium text-slate-500 uppercase">Origin</label>
-                                ${isVendor
-                                    ? '<span class="badge-source badge-vendor" style="font-size: 9px;"><svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>Vendor Package</span>'
-                                    : '<span class="badge-source badge-app" style="font-size: 9px;"><svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>Application Code</span>'
-                                }
+                        <div class="bg-slate-800/40 rounded-xl border border-slate-700/50 overflow-hidden">
+                            <div class="px-4 py-2 border-b border-slate-700/50 bg-slate-800/30">
+                                <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Origin</h3>
                             </div>
-                            <div class="p-3 bg-slate-900 rounded-lg font-mono text-xs ${isVendor ? 'text-slate-500' : 'text-indigo-400'} break-all">
-                                <div class="flex items-start gap-2">
-                                    <svg class="w-4 h-4 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path>
-                                    </svg>
-                                    <span>${origin.file}:${origin.line}</span>
+                            <div class="p-4">
+                                <div class="flex items-center gap-2 mb-2">
+                                    ${isVendor
+                                        ? '<span class="badge-source badge-vendor"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>Vendor Package</span>'
+                                        : '<span class="badge-source badge-app"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>Application Code</span>'
+                                    }
+                                </div>
+                                <div class="p-3 bg-slate-900 rounded-lg font-mono text-xs ${isVendor ? 'text-slate-500' : 'text-indigo-400'} break-all border border-slate-800">
+                                    <div class="flex items-start gap-2">
+                                        <svg class="w-4 h-4 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path>
+                                        </svg>
+                                        <span class="leading-relaxed">${origin.file}:${origin.line}</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1517,9 +1582,11 @@
 
                     <!-- Issues -->
                     ${issues.length ? `
-                        <div>
-                            <label class="text-xs font-medium text-slate-500 uppercase mb-2 block">Issues (${issues.length})</label>
-                            <div class="space-y-2">
+                        <div class="bg-rose-500/5 rounded-xl border border-rose-500/20 overflow-hidden">
+                            <div class="px-4 py-2 border-b border-rose-500/20 bg-rose-500/10">
+                                <h3 class="text-xs font-semibold text-rose-400 uppercase tracking-wider">Issues Detected (${issues.length})</h3>
+                            </div>
+                            <div class="p-4 space-y-3">
                                 ${issues.map(i => {
                                     const issueStyles = {
                                         'n+1': { bg: 'rgba(168, 85, 247, 0.1)', border: 'rgba(168, 85, 247, 0.2)', text: '#c084fc', label: '#a855f7' },
@@ -1529,11 +1596,16 @@
                                     };
                                     const style = issueStyles[i.type?.toLowerCase()] || issueStyles.default;
                                     return `
-                                        <div class="p-3 rounded-lg" style="background: ${style.bg}; border: 1px solid ${style.border}">
-                                            <div class="flex items-center gap-2 mb-1">
-                                                <span class="text-xs font-semibold uppercase" style="color: ${style.label}">${escapeHtml(i.type)}</span>
+                                        <div class="p-3 rounded-lg flex gap-3" style="background: ${style.bg}; border: 1px solid ${style.border}">
+                                            <div class="flex-shrink-0 mt-0.5">
+                                                <svg class="w-4 h-4" style="color: ${style.label}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                                                </svg>
                                             </div>
-                                            <div class="text-xs" style="color: ${style.text}">${escapeHtml(i.message)}</div>
+                                            <div>
+                                                <span class="text-[10px] font-bold uppercase tracking-wider block mb-1" style="color: ${style.label}">${escapeHtml(i.type)}</span>
+                                                <div class="text-xs leading-relaxed" style="color: ${style.text}">${escapeHtml(i.message)}</div>
+                                            </div>
                                         </div>
                                     `;
                                 }).join('')}
@@ -1543,12 +1615,17 @@
 
                     <!-- Recommendations -->
                     ${recommendations.length ? `
-                        <div>
-                            <label class="text-xs font-medium text-slate-500 uppercase mb-2 block">Recommendations</label>
-                            <div class="space-y-2">
+                        <div class="bg-indigo-500/5 rounded-xl border border-indigo-500/10 overflow-hidden">
+                            <div class="px-4 py-2 border-b border-indigo-500/10 bg-indigo-500/10">
+                                <h3 class="text-xs font-semibold text-indigo-400 uppercase tracking-wider">Recommendations</h3>
+                            </div>
+                            <div class="p-4 space-y-2">
                                 ${recommendations.map(r => `
-                                    <div class="p-2 bg-indigo-500/10 border border-indigo-500/20 rounded-lg text-xs text-indigo-300">
-                                        ${r}
+                                    <div class="flex gap-3 p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-lg">
+                                        <svg class="w-4 h-4 text-indigo-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                        </svg>
+                                        <span class="text-xs text-indigo-300 leading-relaxed">${r}</span>
                                     </div>
                                 `).join('')}
                             </div>
@@ -1625,7 +1702,9 @@
                         ${humanizedExplain ? `
                             <div>
                                 <label class="text-[10px] font-medium text-slate-500 uppercase tracking-wider block mb-2">Execution Plan (Humanized)</label>
-                                <pre class="p-3 bg-black/50 rounded-lg text-[11px] font-mono text-emerald-400 overflow-x-auto whitespace-pre-wrap leading-relaxed border border-slate-700/50">${escapeHtml(humanizedExplain)}</pre>
+                                <div class="p-3 bg-black/50 rounded-lg text-sm text-slate-300 overflow-x-auto leading-relaxed border border-slate-700/50 markdown-content">
+                                    ${marked.parse(humanizedExplain)}
+                                </div>
                             </div>
                         ` : ''}
 
@@ -1638,7 +1717,7 @@
                                     </svg>
                                     Raw EXPLAIN ANALYZE Output
                                 </summary>
-                                <pre class="mt-2 p-2 bg-black/30 rounded text-[10px] font-mono text-slate-500 overflow-x-auto whitespace-pre-wrap">${escapeHtml(data.raw_analyze)}</pre>
+                                <pre class="mt-2 p-3 bg-black/30 rounded text-sm font-mono text-slate-400 overflow-x-auto whitespace-pre-wrap selection:bg-indigo-500 selection:text-white">${escapeHtml(data.raw_analyze)}</pre>
                             </details>
                         ` : ''}
                     </div>
@@ -2099,6 +2178,7 @@
                 refreshRequests();
                 loadOverviewStats();
                 renderQueryList([]);
+                document.getElementById('queries-info').textContent = 'Select a request to view queries';
             } catch (e) {
                 console.error('Error resetting:', e);
             }
@@ -2181,6 +2261,43 @@
 
         function showTopQueryDetail(sql) {
             alert(sql); // Simple preview, could be modal
+        }
+
+        async function copyToClipboard(text, event) {
+            if (event) event.stopPropagation();
+            
+            // Fallback for non-secure contexts (http)
+            if (!navigator.clipboard) {
+                try {
+                    const textArea = document.createElement("textarea");
+                    textArea.value = text;
+                    textArea.style.position = "fixed";  // Avoid scrolling to bottom
+                    document.body.appendChild(textArea);
+                    textArea.focus();
+                    textArea.select();
+                    
+                    const successful = document.execCommand('copy');
+                    document.body.removeChild(textArea);
+                    
+                    if (successful) {
+                        showToast('Copied to clipboard', 'success');
+                    } else {
+                        showToast('Failed to copy', 'error');
+                    }
+                } catch (err) {
+                    console.error('Fallback copy failed: ', err);
+                    showToast('Failed to copy', 'error');
+                }
+                return;
+            }
+
+            try {
+                await navigator.clipboard.writeText(text);
+                showToast('Copied to clipboard', 'success');
+            } catch (err) {
+                console.error('Failed to copy code: ', err);
+                showToast('Failed to copy', 'error');
+            }
         }
     </script>
 </body>

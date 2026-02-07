@@ -82,9 +82,19 @@ return [
     // Alert notifications
     'alerts' => [
         'enabled' => env('QUERY_LENS_ALERTS', false),
-        'channels' => ['log'], // log, mail, slack
+        'channels' => ['log'], // Available: log, mail, slack
+        'mail_to' => env('QUERY_LENS_MAIL_TO'),
+        'slack_webhook' => env('QUERY_LENS_SLACK_WEBHOOK'),
     ],
 ];
+```
+
+Configure the environment variables in your `.env`:
+
+```env
+QUERY_LENS_ALERTS=true
+QUERY_LENS_MAIL_TO=admin@example.com
+QUERY_LENS_SLACK_WEBHOOK=https://hooks.slack.com/services/YOUR/WEBHOOK/URL
 ```
 
 ---

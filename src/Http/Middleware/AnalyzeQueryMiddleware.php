@@ -18,6 +18,10 @@ class AnalyzeQueryMiddleware
 
     public function handle(Request $request, Closure $next)
     {
+        if ($request->is('query-lens*')) {
+            $this->analyzer->disableRecording();
+        }
+
         // Set a unique Request ID for this request cycle
         // This ensures queries are grouped by the actual HTTP request, 
         // regardless of the underlying PHP process reuse.

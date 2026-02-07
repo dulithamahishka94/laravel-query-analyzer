@@ -8,6 +8,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Str;
 use Coderflex\QueryLens\Contracts\QueryStorage;
 use Coderflex\QueryLens\Models\AnalyzedQuery;
+use Coderflex\QueryLens\Models\AlertLog;
 use Coderflex\QueryLens\Models\AnalyzedRequest;
 use Coderflex\QueryLens\Models\QueryAggregate;
 use Coderflex\QueryLens\Models\TopQuery;
@@ -89,6 +90,9 @@ class DatabaseQueryStorage implements QueryStorage
     {
         AnalyzedQuery::truncate();
         AnalyzedRequest::truncate();
+        QueryAggregate::truncate();
+        TopQuery::truncate();
+        AlertLog::truncate();
     }
 
     public function getByRequest(string $requestId): array

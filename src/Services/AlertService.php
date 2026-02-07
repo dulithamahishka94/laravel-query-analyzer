@@ -22,9 +22,7 @@ class AlertService
 
     public function checkAlerts(AnalyzedQuery $query): void
     {
-        if (!($this->config['enabled'] ?? false)) {
-            return;
-        }
+
 
         $alerts = Alert::enabled()->get();
 
@@ -194,10 +192,7 @@ class AlertService
             return;
         }
 
-        Mail::raw($this->formatMailMessage($alert, $message, $context), function ($mail) use ($to, $alert) {
-            $mail->to($to)
-                ->subject("Query Analyzer Alert: {$alert->name}");
-        });
+        Mail::to($to)->send(new \Coderflex\QueryLens\Mail\AlertTriggered($alert, $message, $context));
     }
 
     protected function sendSlackNotification(Alert $alert, string $message, array $context): void

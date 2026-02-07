@@ -479,10 +479,11 @@ class QueryLensController extends Controller
         ]));
     }
 
-    public function overview(): JsonResponse
+    public function overview(Request $request): JsonResponse
     {
         $aggregationService = app(AggregationService::class);
-        $overview = $aggregationService->getOverviewStats();
+        $period = $request->query('period', '24h');
+        $overview = $aggregationService->getOverviewStats($period);
 
         return $this->noCacheResponse(response()->json($overview));
     }

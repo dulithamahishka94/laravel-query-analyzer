@@ -182,7 +182,8 @@ class AggregationService
     public function getPerformanceTrends(string $granularity, Carbon $start, Carbon $end): array
     {
         // Try to get from pre-computed aggregates first (database storage)
-        if (config('query-lens.storage.driver') === 'database') {
+        // We only possess pre-computed data for 'hour' and 'day'
+        if (config('query-lens.storage.driver') === 'database' && in_array($granularity, ['hour', 'day'])) {
             $periodType = $granularity === 'hour' ? 'hour' : 'day';
 
             $aggregates = QueryAggregate::where('period_type', $periodType)
@@ -209,7 +210,13 @@ class AggregationService
         $p99 = [];
 
         foreach ($aggregates as $agg) {
-            $labels[] = $agg->period_start->format($granularity === 'hour' ? 'H:i' : 'M d');
+            $labels[] = $agg->period_start->format(
+                match ($granularity) {
+                    'minute' => 'H:i',
+                    'hour' => 'H:00',
+                    default => 'M j'
+                }
+            );
             $latency[] = round($agg->avg_time * 1000, 2);
             $throughput[] = $agg->total_queries;
             $p50[] = round($agg->p50_time * 1000, 2);
@@ -234,8 +241,17 @@ class AggregationService
 
         // Group queries by time bucket efficiently
         $buckets = [];
-        $bucketFormat = $granularity === 'hour' ? 'Y-m-d H' : 'Y-m-d';
-        $labelFormat = $granularity === 'hour' ? 'H:i' : 'M d';
+        $bucketFormat = match ($granularity) {
+            'minute' => 'Y-m-d H:i',
+            'hour' => 'Y-m-d H',
+            default => 'Y-m-d'
+        };
+
+        $labelFormat = match ($granularity) {
+            'minute' => 'H:i',
+            'hour' => 'H:00',
+            default => 'M j'
+        };
         $startTs = $start->timestamp;
         $endTs = $end->timestamp;
 
@@ -314,32 +330,48 @@ class AggregationService
         return (float) $sortedValues[$index];
     }
 
-    public function getOverviewStats(): array
+    public function getOverviewStats(string $period = '24h'): array
     {
         $now = now();
+        $targetStart = $this->getPeriodStart($period);
+        $previousStart = $targetStart->copy()->subSeconds($now->diffInSeconds($targetStart));
 
-        $todayStart = $now->copy()->startOfDay();
-        $yesterdayStart = $now->copy()->subDay()->startOfDay();
-        $yesterdayEnd = $now->copy()->subDay()->endOfDay();
-        $weekStart = $now->copy()->subWeek();
-
-        $today = $this->getPeriodStats($todayStart, $now);
-        $yesterday = $this->getPeriodStats($yesterdayStart, $yesterdayEnd);
-        $week = $this->getPeriodStats($weekStart, $now);
+        // Current Period
+        $today = $this->getPeriodStats($targetStart, $now);
+        
+        // Previous Period (Comparison)
+        $yesterday = $this->getPeriodStats($previousStart, $targetStart);
+        
+        // Week (Legacy - kept for structure compatibility if needed, else we can optimize)
+        $week = $this->getPeriodStats($now->copy()->subWeek(), $now);
 
         // Calculate comparisons
         $comparison = [
             'queries' => $this->calculateChange($today['total_queries'], $yesterday['total_queries']),
             'avg_time' => $this->calculateChange($today['avg_time'], $yesterday['avg_time']),
             'slow' => $this->calculateChange($today['slow_queries'], $yesterday['slow_queries']),
+            'p95' => $this->calculateChange($today['p95_time'], $yesterday['p95_time']),
         ];
 
         return [
-            'today' => $today,
-            'yesterday' => $yesterday,
+            'today' => $today,       // "Today" here represents the "Current Period" stats
+            'yesterday' => $yesterday, // "Yesterday" represents "Previous Period" stats
             'week' => $week,
             'comparison' => $comparison,
         ];
+    }
+
+    protected function getPeriodStart(string $period): Carbon
+    {
+        return match ($period) {
+            '1h' => now()->subHour(),
+            '6h' => now()->subHours(6),
+            '12h' => now()->subHours(12),
+            '24h', 'day' => now()->subDay(),
+            '7d', 'week' => now()->subWeek(),
+            '30d', 'month' => now()->subDays(30),
+            default => now()->subDay(),
+        };
     }
 
     protected function getPeriodStats(Carbon $start, Carbon $end): array
