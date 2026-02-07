@@ -39,7 +39,10 @@ class QueryLensServiceProvider extends ServiceProvider
                 return $storage;
             }
 
-            return new CacheQueryStorage(config('query-lens.store'));
+            $storage = new CacheQueryStorage(config('query-lens.store'));
+            $storage->setAlertService($app->make(AlertService::class));
+
+            return $storage;
         });
 
         // Register services
@@ -150,6 +153,7 @@ class QueryLensServiceProvider extends ServiceProvider
                     Route::get('alerts', [AlertController::class, 'index'])->name('query-lens.api.v2.alerts.index');
                     Route::post('alerts', [AlertController::class, 'store'])->name('query-lens.api.v2.alerts.store');
                     Route::get('alerts/logs', [AlertController::class, 'recentLogs'])->name('query-lens.api.v2.alerts.logs');
+                    Route::delete('alerts/logs', [AlertController::class, 'clearLogs'])->name('query-lens.api.v2.alerts.clear-logs');
                     Route::get('alerts/{id}', [AlertController::class, 'show'])->name('query-lens.api.v2.alerts.show');
                     Route::put('alerts/{id}', [AlertController::class, 'update'])->name('query-lens.api.v2.alerts.update');
                     Route::delete('alerts/{id}', [AlertController::class, 'destroy'])->name('query-lens.api.v2.alerts.destroy');

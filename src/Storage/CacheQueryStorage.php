@@ -11,11 +11,16 @@ class CacheQueryStorage implements QueryStorage
     protected string $cacheKey = 'laravel_query_lens_queries_v3';
     protected string $requestsCacheKey = 'laravel_query_lens_requests_v1';
     protected int $ttl = 3600; // 1 hour
-    protected ?string $store;
+    protected ?\Coderflex\QueryLens\Services\AlertService $alertService = null;
 
     public function __construct(?string $store = null)
     {
         $this->store = $store;
+    }
+
+    public function setAlertService(\Coderflex\QueryLens\Services\AlertService $alertService): void
+    {
+        $this->alertService = $alertService;
     }
 
     public function store(array $query): void
@@ -29,6 +34,42 @@ class CacheQueryStorage implements QueryStorage
         $queries = array_slice($queries, 0, 10000);
 
         Cache::store($this->store)->put($this->cacheKey, $queries, $this->ttl);
+
+        // Check alerts
+        if ($this->alertService) {
+            $this->checkAlerts($query);
+        }
+    }
+
+    protected function checkAlerts(array $query): void
+    {
+        // Hydrate a temporary model for alert checking
+        $analyzedQuery = new \Coderflex\QueryLens\Models\AnalyzedQuery($query);
+        
+        // Populate specific fields that might be missing or nested
+        $analyzedQuery->time = $query['time'] ?? 0;
+        $analyzedQuery->n_plus_one_count = $this->calculateNPlusOneCount($query);
+        $analyzedQuery->is_n_plus_one = $query['analysis']['is_n_plus_one'] ?? false; // Assuming this logic exists or re-derive it
+        
+        // Re-derive is_n_plus_one if not present (it's in analysis issues usually)
+        $issues = $query['analysis']['issues'] ?? [];
+        $analyzedQuery->is_n_plus_one = collect($issues)->contains(fn($i) => ($i['type'] ?? '') === 'n+1');
+        
+        $this->alertService->checkAlerts($analyzedQuery);
+    }
+
+    protected function calculateNPlusOneCount(array $query): int
+    {
+        // For cache, we need to count from the cached array
+        if (!$query['request_id']) return 0;
+        
+        $sqlHash = \Coderflex\QueryLens\Models\AnalyzedQuery::hashSql($query['sql'] ?? '');
+        
+        $queries = $this->getByRequest($query['request_id']);
+        
+        return collect($queries)
+            ->filter(fn($q) => \Coderflex\QueryLens\Models\AnalyzedQuery::hashSql($q['sql'] ?? '') === $sqlHash)
+            ->count();
     }
 
     public function get(int $limit = 100): array

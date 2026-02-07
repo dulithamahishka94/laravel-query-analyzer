@@ -112,6 +112,19 @@ class AlertController extends Controller
         return response()->json($logs);
     }
 
+    public function clearLogs(): JsonResponse
+    {
+        AlertLog::truncate();
+        
+        // Store the last cleared timestamp in cache
+        cache()->put('query-lens.alerts.last_cleared_at', now()->toIso8601String());
+
+        return response()->json([
+            'message' => 'Alert logs cleared successfully',
+            'last_cleared_at' => now()->toIso8601String(),
+        ]);
+    }
+
     public function recentLogs(Request $request): JsonResponse
     {
         $hours = (int) $request->query('hours', 24);
@@ -125,6 +138,7 @@ class AlertController extends Controller
         return response()->json([
             'logs' => $logs,
             'stats' => $this->alertService->getAlertStats(),
+            'last_cleared_at' => cache()->get('query-lens.alerts.last_cleared_at'),
         ]);
     }
 
