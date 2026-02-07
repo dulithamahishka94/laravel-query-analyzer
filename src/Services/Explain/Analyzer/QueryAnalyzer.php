@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Laravel\QueryAnalyzer\Services\Explain\Analyzer;
+namespace GladeHQ\QueryLens\ExplainAnalyzer\Analyzer;
 
-use Laravel\QueryAnalyzer\Services\Explain\Nodes\OperationNode;
-use Laravel\QueryAnalyzer\Services\Explain\Issues\Issue;
-use Laravel\QueryAnalyzer\Services\Explain\Issues\IssueType;
-use Laravel\QueryAnalyzer\Services\Explain\Issues\IssueSeverity;
+use GladeHQ\QueryLens\ExplainAnalyzer\Nodes\OperationNode;
+use GladeHQ\QueryLens\ExplainAnalyzer\Issues\Issue;
+use GladeHQ\QueryLens\ExplainAnalyzer\Issues\IssueType;
+use GladeHQ\QueryLens\ExplainAnalyzer\Issues\IssueSeverity;
 
 /**
  * Analyzes parsed execution plan nodes to identify performance issues.

@@ -1,5 +1,5 @@
 {
-    "name": "laravel/query-analyzer",
+    "name": "gladehq/laravel-query-lens",
     "description": "A Laravel package for analyzing and optimizing database queries with performance insights",
     "type": "library",
     "license": "MIT",
@@ -8,14 +8,17 @@
         "database",
         "query",
         "analyzer",
+        "profiler",
         "performance",
         "optimization",
-        "sql"
+        "sql",
+        "eloquent"
     ],
     "authors": [
         {
-            "name": "Laravel Query Analyzer Contributors",
-            "email": "developers@example.com"
+            "name": "Dulitha Rajapaksha",
+            "organization": "GladeHQ",
+            "email": "dulithamahishka94@gmail.com"
         }
     ],
     "require": {
@@ -31,18 +34,18 @@
     },
     "autoload": {
         "psr-4": {
-            "Laravel\\QueryAnalyzer\\": "src/"
+            "GladeHQ\\QueryLens\\": "src/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "Laravel\\QueryAnalyzer\\Tests\\": "tests/"
+            "GladeHQ\\QueryLens\\Tests\\": "tests/"
         }
     },
     "extra": {
         "laravel": {
             "providers": [
-                "Laravel\\QueryAnalyzer\\QueryAnalyzerServiceProvider"
+                "GladeHQ\\QueryLens\\QueryLensServiceProvider"
             ]
         }
     },

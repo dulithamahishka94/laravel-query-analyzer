@@ -1,9 +1,9 @@
 <?php
 
-namespace Laravel\QueryAnalyzer\Tests;
+namespace GladeHQ\QueryLens\Tests;
 
 use Illuminate\Support\Facades\DB;
-use Laravel\QueryAnalyzer\QueryAnalyzer;
+use GladeHQ\QueryLens\QueryAnalyzer;
 use Orchestra\Testbench\TestCase;
 
 class ExplainTest extends TestCase
@@ -33,8 +33,10 @@ class ExplainTest extends TestCase
           ->andReturn([['id' => 1, 'select_type' => 'SIMPLE']]);
 
         // Instantiate logic manually since we are not setting up full HTTP test here for speed
-        $controller = new \Laravel\QueryAnalyzer\Http\Controllers\QueryAnalyzerController(
-            new QueryAnalyzer([], new \Laravel\QueryAnalyzer\Tests\Fakes\InMemoryQueryStorage())
+        $storage = new \GladeHQ\QueryLens\Tests\Fakes\InMemoryQueryStorage();
+        $controller = new \GladeHQ\QueryLens\Http\Controllers\QueryLensController(
+            new QueryAnalyzer([], $storage),
+            $storage
         );
 
         $request = new \Illuminate\Http\Request();

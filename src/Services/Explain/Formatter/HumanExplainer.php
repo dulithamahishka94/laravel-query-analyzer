@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Laravel\QueryAnalyzer\Services\Explain\Formatter;
+namespace GladeHQ\QueryLens\ExplainAnalyzer\Formatter;
 
-use Laravel\QueryAnalyzer\Services\Explain\Analyzer\AnalysisResult;
-use Laravel\QueryAnalyzer\Services\Explain\Nodes\OperationNode;
-use Laravel\QueryAnalyzer\Services\Explain\Issues\Issue;
-use Laravel\QueryAnalyzer\Services\Explain\Issues\IssueSeverity;
+use GladeHQ\QueryLens\ExplainAnalyzer\Analyzer\AnalysisResult;
+use GladeHQ\QueryLens\ExplainAnalyzer\Nodes\OperationNode;
+use GladeHQ\QueryLens\ExplainAnalyzer\Issues\Issue;
+use GladeHQ\QueryLens\ExplainAnalyzer\Issues\IssueSeverity;
 
 /**
  * Generates human-readable explanations from analysis results.

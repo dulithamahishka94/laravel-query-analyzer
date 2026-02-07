@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Laravel\QueryAnalyzer\Services\Explain\Nodes;
+namespace GladeHQ\QueryLens\ExplainAnalyzer\Nodes;
 
 /**
  * Represents a single operation/step in the MySQL execution plan.

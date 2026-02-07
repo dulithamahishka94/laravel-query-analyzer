@@ -1,13 +1,13 @@
 <?php
 
-namespace Laravel\QueryAnalyzer\Listeners;
+namespace GladeHQ\QueryLens\Listeners;
 
 use Illuminate\Cache\Events\CacheHit;
 use Illuminate\Cache\Events\CacheMiss;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
-use Laravel\QueryAnalyzer\QueryAnalyzer;
+use GladeHQ\QueryLens\QueryAnalyzer;
 
 class QueryListener
 {

@@ -1,21 +1,22 @@
 <?php
 
-namespace Laravel\QueryAnalyzer\Tests;
+namespace GladeHQ\QueryLens\Tests;
 
-use Laravel\QueryAnalyzer\Http\Controllers\QueryAnalyzerController;
-use Laravel\QueryAnalyzer\QueryAnalyzer;
+use GladeHQ\QueryLens\Http\Controllers\QueryLensController;
+use GladeHQ\QueryLens\QueryAnalyzer;
 use Orchestra\Testbench\TestCase;
 use ReflectionMethod;
 
 class HumanizedExplainTest extends TestCase
 {
-    protected QueryAnalyzerController $controller;
+    protected QueryLensController $controller;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $analyzer = new QueryAnalyzer([], new \Laravel\QueryAnalyzer\Tests\Fakes\InMemoryQueryStorage());
-        $this->controller = new QueryAnalyzerController($analyzer);
+        $storage = new \GladeHQ\QueryLens\Tests\Fakes\InMemoryQueryStorage();
+        $analyzer = new QueryAnalyzer([], $storage);
+        $this->controller = new QueryLensController($analyzer, $storage);
     }
 
     protected function callHumanize($standard, $analyze)

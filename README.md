@@ -1,86 +1,125 @@
-# Laravel Query Analyzer 🚀
+# GladeHQ Laravel Query Lens
 
-[![Latest Version on Packagist](https://img.shields.io/packagist/v/laravel/query-analyzer.svg?style=flat-square)](https://packagist.org/packages/laravel/query-analyzer)
-[![Total Downloads](https://img.shields.io/packagist/dt/laravel/query-analyzer.svg?style=flat-square)](https://packagist.org/packages/laravel/query-analyzer)
-[![License](https://img.shields.io/packagist/l/laravel/query-analyzer.svg?style=flat-square)](https://packagist.org/packages/laravel/query-analyzer)
+[![Latest Version on Packagist](https://img.shields.io/packagist/v/gladehq/laravel-query-lens.svg?style=flat-square)](https://packagist.org/packages/gladehq/laravel-query-lens)
+[![Total Downloads](https://img.shields.io/packagist/dt/gladehq/laravel-query-lens.svg?style=flat-square)](https://packagist.org/packages/gladehq/laravel-query-lens)
+[![License](https://img.shields.io/packagist/l/gladehq/laravel-query-lens.svg?style=flat-square)](https://packagist.org/packages/gladehq/laravel-query-lens)
 
-A premium Laravel package that acts like an **Automated Database Administrator (DBA)**. It doesn't just list your queries; it analyzes them, finds performance killers, and suggests specific indexes.
+**Query Lens** is a powerful observability dashboard for Laravel applications. It provides real-time insights into your database performance, helping you spot N+1 queries, slow database operations, and inefficient patterns instantly.
 
----
-
-## 🔥 Key Features
-
--   **💎 Premium Dashboard**: A modern, real-time UI built with Tailwind CSS.
--   **💾 Persistence Layer**: All queries are persisted via Laravel Cache—view background jobs and API calls effortlessly.
--   **📍 Code Origin (Stack Trace)**: See exactly which **file and line number** triggered every query.
--   **🛠️ Index Suggestions**: Automated advice on which columns to index for slow queries.
--   **🔍 EXPLAIN Integration**: Run `EXPLAIN` or `EXPLAIN ANALYZE` directly from the dashboard to see raw execution plans.
--   **🔄 Request Grouping**: Queries are tagged with unique Request IDs to easily debug single page loads.
--   **🎯 N+1 Detection**: Heuristic detection of repeated query structures within a single request.
+![Dashboard Overview](docs/images/dashboard_overview.png)
 
 ---
 
-## 🚀 Quick Start
+## 📚 Documentation
 
-### 1. Installation
+For a deep dive into all features, configuration, and advanced usage, please read the **[Official Documentation](docs/documentation.md)**.
+
+---
+
+## ✨ Features
+
+- **🚀 Real-time Monitoring**: Watch queries execute live as you browse your app.
+- **🔍 Deep Analysis**: Integrated `EXPLAIN` runner to visualize execution plans and index usage.
+- **🌊 Request Waterfall**: Visualize query timing relative to your HTTP requests.
+- **🚨 Intelligent Alerts**: Get notified via Slack, Email, or Logs when queries exceed thresholds.
+- **📉 Trend Tracking**: Monitor P95/P99 latency over time to catch performance regressions.
+- **📍 Code Origin**: Pinpoint exactly which file and line of code triggered a query.
+
+---
+
+## 🚀 Installation
+
+Install the package via Composer:
+
 ```bash
-composer require laravel/query-analyzer
+composer require gladehq/laravel-query-lens
 ```
 
-### 2. Publish Configuration
+Publish the configuration file:
+
 ```bash
-php artisan vendor:publish --tag=query-analyzer-config
+php artisan vendor:publish --tag=query-lens-config
 ```
 
-### 3. Usage
-Visit `/query-analyzer` in your browser. (Ensure you are on `localhost` or have configured `allowed_ips`).
+Enable it in your `.env` file:
+
+```env
+QUERY_LENS_ENABLED=true
+```
+
+Visit `/query-lens` in your browser to start analyzing!
+
+> **Note**: By default, access is restricted to non-local environments. See [Documentation](docs/documentation.md#security) for production configuration.
 
 ---
 
-## 🛠️ Performance Analysis
+## ⚙️ Configuration (Quick Start)
 
-The analyzer automatically flags:
--   **Leading Wildcards**: `LIKE '%abc'` (kills indexing).
--   **Random Sorting**: `ORDER BY RAND()` (catastrophic on large tables).
--   **Deep Pagination**: High `OFFSET` values.
--   **Redundant Columns**: `SELECT *` usage.
--   **Functions in WHERE**: Non-sargable conditions like `WHERE DATE(created_at)`.
-
-### Automatic Indexing Suggestions
-If a query is slow, the analyzer parses the SQL and recommends:
-> "Consider adding an INDEX on table `users` columns: (email, status)"
-
----
-
-## ⚙️ Configuration
-
-Key options in `config/query-analyzer.php`:
+Here are the most common options in `config/query-lens.php`:
 
 ```php
 return [
-    'enabled' => env('QUERY_ANALYZER_ENABLED', true),
-    
-    // Thresholds for color-coded feedback
+    'enabled' => env('QUERY_LENS_ENABLED', false),
+
+    // Define what "slow" means for your app
     'performance_thresholds' => [
-        'fast' => 0.05,     // 50ms
-        'moderate' => 0.2, // 200ms
-        'slow' => 1.0,     // 1s
+        'slow' => 1.0, // Queries taking > 1s are marked slow
     ],
 
-    'web_ui' => [
-        'allowed_ips' => ['127.0.0.1', '::1'],
-        'auth_callback' => null, // Add custom Gates/Logic here
+    // Choose 'cache' (ephemeral) or 'database' (persistent)
+    'storage' => [
+        'driver' => env('QUERY_LENS_STORAGE', 'cache'),
+    ],
+
+    // Configure Alerts
+    'alerts' => [
+        'enabled' => env('QUERY_LENS_ALERTS', false),
+        'channels' => ['mail', 'slack'],
+        'mail_to' => env('QUERY_LENS_MAIL_TO'),
+        'slack_webhook' => env('QUERY_LENS_SLACK_WEBHOOK'),
     ],
 ];
 ```
 
 ---
 
-## 📝 Performance Note
-This package performs **synchronous regex analysis** on queries to provide deep insights. It is intended for **local development and staging environments**. It is not recommended for high-traffic production environments unless `enabled` is set to `false`.
+## 🛠️ Advanced Usage
+
+### Facade API
+
+```php
+use GladeHQ\QueryLens\Facades\QueryLens;
+
+// Manually analyze a query string
+$analysis = QueryLens::analyzeQuery('SELECT * FROM users WHERE active = 1');
+
+// Get current session stats
+$stats = QueryLens::getStats();
+```
+
+### Console Commands
+
+- `php artisan query-lens:aggregate`: Pre-calculate hourly trends (for Database driver).
+- `php artisan query-lens:prune`: Clean up old data.
 
 ---
 
-## ⚖️ License
+## 🧪 Testing
+
+Run the test suite to ensure everything is working correctly:
+
+```bash
+composer test
+```
+
+---
+
+## 📄 License
 
 The MIT License (MIT). Please see [License File](LICENSE.md) for more information.
+
+---
+
+## 👨‍💻 Credits
+
+Developed by **[Dulitha Rajapaksha](https://github.com/dulithamahishka94)** for **[GladeHQ](https://gladehq.dulitharajapaksha.com)**.

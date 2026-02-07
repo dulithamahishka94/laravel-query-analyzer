@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Laravel\QueryAnalyzer\Services\Explain\Parser;
+namespace GladeHQ\QueryLens\ExplainAnalyzer\Parser;
 
-use Laravel\QueryAnalyzer\Services\Explain\Nodes\OperationNode;
+use GladeHQ\QueryLens\ExplainAnalyzer\Nodes\OperationNode;
 
 /**
  * Parses MySQL EXPLAIN ANALYZE output into a structured tree of operation nodes.

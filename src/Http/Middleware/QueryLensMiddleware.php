@@ -1,16 +1,16 @@
 <?php
 
-namespace Laravel\QueryAnalyzer\Http\Middleware;
+namespace GladeHQ\QueryLens\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
-class QueryAnalyzerMiddleware
+class QueryLensMiddleware
 {
-    protected \Laravel\QueryAnalyzer\QueryAnalyzer $analyzer;
+    protected \GladeHQ\QueryLens\QueryAnalyzer $analyzer;
 
-    public function __construct(\Laravel\QueryAnalyzer\QueryAnalyzer $analyzer)
+    public function __construct(\GladeHQ\QueryLens\QueryAnalyzer $analyzer)
     {
         $this->analyzer = $analyzer;
     }
@@ -22,7 +22,7 @@ class QueryAnalyzerMiddleware
         $this->analyzer->setRequestId($requestId);
 
         // 2. Authorization for DASHBOARD access
-        if (str_contains($request->getPathInfo(), 'query-analyzer')) {
+        if (str_contains($request->getPathInfo(), 'query-lens')) {
             if (!$this->isAuthorized($request)) {
                 abort(403, 'Access denied to Query Analyzer. Please check your configuration.');
             }
@@ -40,18 +40,18 @@ class QueryAnalyzerMiddleware
 
     protected function isAuthorized(Request $request): bool
     {
-        if (!config('query-analyzer.web_ui.enabled', true)) {
+        if (!config('query-lens.web_ui.enabled', true)) {
             return false;
         }
 
         if (!app()->environment(['local', 'testing'])) {
-            $allowedIps = config('query-analyzer.web_ui.allowed_ips', ['127.0.0.1', '::1']);
+            $allowedIps = config('query-lens.web_ui.allowed_ips', ['127.0.0.1', '::1']);
             if (!in_array($request->ip(), $allowedIps)) {
                 return false;
             }
         }
 
-        $authCallback = config('query-analyzer.web_ui.auth_callback');
+        $authCallback = config('query-lens.web_ui.auth_callback');
         if ($authCallback && is_callable($authCallback)) {
             return (bool) call_user_func($authCallback, $request);
         }
