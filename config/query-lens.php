@@ -27,6 +27,7 @@ return [
         'enabled' => env('QUERY_LENS_WEB_UI_ENABLED', true),
         'allowed_ips' => ['127.0.0.1', '::1'], // Only allow local access by default
         'auth_callback' => null, // Custom authentication callback
+        'auth_gate' => env('QUERY_LENS_AUTH_GATE', null), // Laravel Gate name (null = disabled)
     ],
 
     /*
