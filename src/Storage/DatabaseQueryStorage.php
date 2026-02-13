@@ -66,11 +66,6 @@ class DatabaseQueryStorage implements QueryStorage
             'created_at' => now(),
         ]);
 
-        // Update request aggregates
-        if ($requestId) {
-            $this->updateRequestAggregates($requestId);
-        }
-
         // Check alerts
         if ($this->alertService) {
             $this->alertService->checkAlerts($analyzedQuery);
@@ -203,6 +198,11 @@ class DatabaseQueryStorage implements QueryStorage
     public function supportsPersistence(): bool
     {
         return true;
+    }
+
+    public function finalizeRequest(string $requestId): void
+    {
+        $this->updateRequestAggregates($requestId);
     }
 
     protected function ensureRequestExists(string $requestId, array $query): void

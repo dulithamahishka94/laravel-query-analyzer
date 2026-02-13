@@ -94,6 +94,15 @@ interface QueryStorage
     public function getQueriesSince(float $since, int $limit = 100): array;
 
     /**
+     * Finalize request aggregation at end of request lifecycle.
+     * Called once from terminate middleware instead of per-query.
+     *
+     * @param string $requestId
+     * @return void
+     */
+    public function finalizeRequest(string $requestId): void;
+
+    /**
      * Check if storage driver supports persistence.
      *
      * @return bool

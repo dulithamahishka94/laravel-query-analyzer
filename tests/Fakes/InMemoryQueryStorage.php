@@ -178,6 +178,11 @@ class InMemoryQueryStorage implements QueryStorage
         return array_slice($filtered, 0, $limit);
     }
 
+    public function finalizeRequest(string $requestId): void
+    {
+        // No-op for in-memory storage
+    }
+
     public function supportsPersistence(): bool
     {
         return false;

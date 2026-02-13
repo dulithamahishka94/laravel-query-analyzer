@@ -217,6 +217,11 @@ class CacheQueryStorage implements QueryStorage
         );
     }
 
+    public function finalizeRequest(string $requestId): void
+    {
+        // Cache storage computes aggregates on-the-fly; no finalization needed
+    }
+
     public function supportsPersistence(): bool
     {
         return false;

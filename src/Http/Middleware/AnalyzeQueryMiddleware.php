@@ -4,17 +4,20 @@ namespace GladeHQ\QueryLens\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use GladeHQ\QueryLens\Contracts\QueryStorage;
 use GladeHQ\QueryLens\QueryAnalyzer;
 use Illuminate\Support\Str;
 
 class AnalyzeQueryMiddleware
 {
     protected QueryAnalyzer $analyzer;
+    protected QueryStorage $storage;
     protected bool $wasDisabledForDashboard = false;
 
-    public function __construct(QueryAnalyzer $analyzer)
+    public function __construct(QueryAnalyzer $analyzer, QueryStorage $storage)
     {
         $this->analyzer = $analyzer;
+        $this->storage = $storage;
     }
 
     public function handle(Request $request, Closure $next)
@@ -37,6 +40,12 @@ class AnalyzeQueryMiddleware
 
     public function terminate(Request $request, $response): void
     {
+        // Finalize request aggregates once at end of request (not per-query)
+        $requestId = $this->analyzer->getRequestId();
+        if ($requestId && !$this->wasDisabledForDashboard) {
+            $this->storage->finalizeRequest($requestId);
+        }
+
         // Re-enable recording after dashboard requests to prevent state leak
         // in long-lived processes (Octane). With scoped binding this is a safety net.
         if ($this->wasDisabledForDashboard) {

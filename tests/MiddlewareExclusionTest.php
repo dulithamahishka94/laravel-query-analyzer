@@ -2,6 +2,7 @@
 
 namespace GladeHQ\QueryLens\Tests;
 
+use GladeHQ\QueryLens\Contracts\QueryStorage;
 use GladeHQ\QueryLens\Http\Middleware\AnalyzeQueryMiddleware;
 use GladeHQ\QueryLens\QueryAnalyzer;
 use Illuminate\Http\Request;
@@ -13,15 +14,14 @@ class MiddlewareExclusionTest extends TestCase
     /** @test */
     public function it_disables_analyzer_for_query_lens_routes()
     {
-        // Mock the QueryAnalyzer
-        $analyzerString = Mockery::mock(QueryAnalyzer::class);
-        $analyzerString->shouldReceive('getRequestId')->andReturn(null);
-        $analyzerString->shouldReceive('setRequestId');
-        
-        // EXPECT disableRecording to be called
-        $analyzerString->shouldReceive('disableRecording')->once();
+        $analyzerMock = Mockery::mock(QueryAnalyzer::class);
+        $analyzerMock->shouldReceive('getRequestId')->andReturn(null);
+        $analyzerMock->shouldReceive('setRequestId');
+        $analyzerMock->shouldReceive('disableRecording')->once();
 
-        $middleware = new AnalyzeQueryMiddleware($analyzerString);
+        $storageMock = Mockery::mock(QueryStorage::class);
+
+        $middleware = new AnalyzeQueryMiddleware($analyzerMock, $storageMock);
 
         $request = Request::create('/query-lens/api/requests', 'GET');
 
@@ -33,15 +33,14 @@ class MiddlewareExclusionTest extends TestCase
     /** @test */
     public function it_enables_analyzer_for_normal_routes()
     {
-        // Mock the QueryAnalyzer
-        $analyzerString = Mockery::mock(QueryAnalyzer::class);
-        $analyzerString->shouldReceive('getRequestId')->andReturn(null);
-        $analyzerString->shouldReceive('setRequestId');
-        
-        // EXPECT disableRecording to NOT be called
-        $analyzerString->shouldReceive('disableRecording')->never();
+        $analyzerMock = Mockery::mock(QueryAnalyzer::class);
+        $analyzerMock->shouldReceive('getRequestId')->andReturn(null);
+        $analyzerMock->shouldReceive('setRequestId');
+        $analyzerMock->shouldReceive('disableRecording')->never();
 
-        $middleware = new AnalyzeQueryMiddleware($analyzerString);
+        $storageMock = Mockery::mock(QueryStorage::class);
+
+        $middleware = new AnalyzeQueryMiddleware($analyzerMock, $storageMock);
 
         $request = Request::create('/users', 'GET');
 

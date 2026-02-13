@@ -66,7 +66,8 @@ class OctaneStateSafetyTest extends TestCase
     public function test_dashboard_request_does_not_permanently_disable_recording(): void
     {
         $analyzer = $this->createAnalyzer();
-        $middleware = new AnalyzeQueryMiddleware($analyzer);
+        $storage = new InMemoryQueryStorage();
+        $middleware = new AnalyzeQueryMiddleware($analyzer, $storage);
 
         // Simulate dashboard request
         $dashboardRequest = Request::create('/query-lens/api/queries', 'GET');
@@ -87,7 +88,8 @@ class OctaneStateSafetyTest extends TestCase
     public function test_non_dashboard_request_does_not_affect_recording(): void
     {
         $analyzer = $this->createAnalyzer();
-        $middleware = new AnalyzeQueryMiddleware($analyzer);
+        $storage = new InMemoryQueryStorage();
+        $middleware = new AnalyzeQueryMiddleware($analyzer, $storage);
 
         $normalRequest = Request::create('/api/users', 'GET');
         $response = new Response('ok');
