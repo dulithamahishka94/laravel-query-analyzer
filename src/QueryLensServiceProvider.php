@@ -58,7 +58,7 @@ class QueryLensServiceProvider extends ServiceProvider
             return new DataRetentionService();
         });
 
-        $this->app->singleton(QueryAnalyzer::class, function ($app) {
+        $this->app->scoped(QueryAnalyzer::class, function ($app) {
             $analyzer = new QueryAnalyzer(
                 $app['config']['query-lens'],
                 $app->make(QueryStorage::class)

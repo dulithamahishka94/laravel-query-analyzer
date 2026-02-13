@@ -26,6 +26,16 @@ class QueryAnalyzer
         $this->enabled = false;
     }
 
+    public function enableRecording(): void
+    {
+        $this->enabled = true;
+    }
+
+    public function isRecording(): bool
+    {
+        return $this->enabled;
+    }
+
     public function setRequestId(string $id): void
     {
         $this->requestId = $id;
