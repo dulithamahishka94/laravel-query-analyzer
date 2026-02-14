@@ -4,7 +4,7 @@
 
 [![PHP Version](https://img.shields.io/packagist/php-v/gladehq/laravel-query-lens.svg?style=flat-square)](https://packagist.org/packages/gladehq/laravel-query-lens)
 [![Laravel Version](https://img.shields.io/badge/laravel-9.x%20%7C%2010.x%20%7C%2011.x%20%7C%2012.x-blue?style=flat-square)](https://packagist.org/packages/gladehq/laravel-query-lens)
-[![Tests](https://img.shields.io/badge/tests-691%20passing-brightgreen?style=flat-square)](https://github.com/dulithamahishka94/laravel-query-analyzer)
+[![Tests](https://img.shields.io/badge/tests-720%20passing-brightgreen?style=flat-square)](https://github.com/gladehq/laravel-query-lens)
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/gladehq/laravel-query-lens.svg?style=flat-square)](https://packagist.org/packages/gladehq/laravel-query-lens)
 [![License](https://img.shields.io/packagist/l/gladehq/laravel-query-lens.svg?style=flat-square)](https://packagist.org/packages/gladehq/laravel-query-lens)
 
@@ -16,15 +16,18 @@
 - **Query-focused.** Not another broad monitoring tool. QueryLens is purpose-built for database query performance -- EXPLAIN analysis, index recommendations, regression detection, and AI optimization.
 - **Production-ready.** Configurable sampling rate, Octane-safe architecture, Laravel Gate authentication, and per-request isolation. Designed for high-traffic applications.
 - **Actionable.** Every feature produces a concrete next step -- an index to create, a query to rewrite, a regression to investigate. Not just dashboards.
+- **100% free and open-source.** Every feature is available to everyone.
 
 ---
 
 ## How QueryLens Compares
 
+All features included. No paid tiers. MIT licensed. Community-driven.
+
 | Feature | QueryLens | Debugbar | Telescope | Pulse | Nightwatch |
 |---|---|---|---|---|---|
 | Deployment | Self-hosted | Self-hosted | Self-hosted | Self-hosted | Cloud |
-| Price | One-time | Free | Free | Free | Subscription |
+| Price | Free | Free | Free | Free | Subscription |
 | EXPLAIN Analysis | Deep + human-readable | No | No | No | No |
 | Index Recommendations | Automated | No | No | No | No |
 | Regression Detection | CI-integrated | No | No | No | Limited |
@@ -45,37 +48,31 @@
 
 Real-time query monitoring dashboard with stats overview, query list, and performance ratings. Supports live polling, search, and filtering by query type, duration, and slow status.
 
-<!-- Screenshot: Dashboard overview showing stats cards, query table with type badges, duration, and performance ratings -->
+![Dashboard Overview](docs/images/dashboard.png)
 
 ### EXPLAIN Analysis with Human-Readable Output
 
 Run EXPLAIN on any captured query directly from the dashboard. Results are parsed into human-readable descriptions explaining what the database engine is doing -- table scans, index usage, join strategies, and row estimates.
 
-<!-- Screenshot: EXPLAIN modal showing raw EXPLAIN output alongside human-readable interpretation -->
+![EXPLAIN Analysis](docs/images/explain.png)
 
 ### Index Recommendation Engine
 
 Analyzes query patterns over configurable time windows and recommends specific indexes to create. Outputs ready-to-run `CREATE INDEX` statements with impact estimates based on actual query frequency and duration.
 
-<!-- Screenshot: Index suggestion output showing recommended indexes with SQL statements and impact scores -->
-
 ### Query Regression Detection and CI Integration
 
 Compare query performance between time periods to detect regressions. Integrates with CI/CD pipelines via the `query-lens:check-regression` command. Supports webhook notifications for automated alerting when performance degrades.
 
-<!-- Screenshot: Regression detection output showing degraded queries with percentage changes -->
+![Regression Detection](docs/images/regression-cli.png)
 
 ### AI-Powered Query Optimization
 
 Submit slow queries to any OpenAI-compatible API for optimization suggestions. Returns rewritten SQL, explanation of changes, and estimated performance improvement. Results are cached to avoid redundant API calls.
 
-<!-- Screenshot: AI optimization modal showing original query, optimized version, and explanation -->
-
 ### Transaction Tracking
 
 Track database transaction lifecycle -- begin, commit, rollback events with duration, nesting depth, and query count. Associates queries with their enclosing transaction for debugging deadlocks and long-running transactions.
-
-<!-- Screenshot: Transaction tracking view showing transaction timeline with nested queries -->
 
 ### Filament Panel Integration
 
@@ -93,13 +90,13 @@ $panel->plugin(QueryLensPlugin::make());
 
 Visual timeline of all queries within a single HTTP request, showing execution order, duration bars, and overlap detection. Identifies sequential queries that could be parallelized.
 
-<!-- Screenshot: Request waterfall showing query execution timeline with duration bars -->
+![Request Waterfall](docs/images/waterfall.png)
 
 ### Performance Trend Tracking
 
 Track P50, P95, and P99 latency over time with configurable granularity (hourly or daily). Identify slow degradation patterns before they become incidents. Top queries ranked by total impact (frequency multiplied by duration).
 
-<!-- Screenshot: Trends page showing latency charts and top queries table -->
+![Performance Trends](docs/images/trends.png)
 
 ---
 
@@ -304,6 +301,12 @@ The plugin provides:
 - PHP 8.1+
 - Laravel 9.x, 10.x, 11.x, or 12.x
 - Filament 3.x (optional, for panel integration)
+
+---
+
+## Documentation
+
+Read complete documentation at [Documentation](https://querylens.dulitharajapaksha.com/docs). 
 
 ---
 

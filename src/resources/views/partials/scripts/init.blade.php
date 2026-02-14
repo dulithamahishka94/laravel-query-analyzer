@@ -20,7 +20,8 @@
     function startPolling() {
         setInterval(async () => {
             try {
-                const res = await fetch(`/query-lens/api/v2/poll?since=${state.lastPollTimestamp}&_cb=${Date.now()}`);
+                const period = document.getElementById('period-select').value;
+                const res = await fetch(`/query-lens/api/v2/poll?since=${state.lastPollTimestamp}&period=${period}&_cb=${Date.now()}`);
                 const data = await res.json();
                 const now = Date.now();
 
@@ -47,6 +48,7 @@
                     }
                 }
 
+                // Poll returns same structure as overview: { today: {...}, comparison: {...} }
                 updateHeaderStats(data.stats);
                 state.lastPollTimestamp = data.timestamp;
 
@@ -144,9 +146,11 @@
 
     function updateHeaderStats(stats) {
         if (!stats) return;
-        const hasData = stats.total_queries && stats.total_queries > 0;
-        setStatValue('header-total', hasData ? formatNumber(stats.total_queries) : null);
-        setStatValue('header-slow', hasData ? formatNumber(stats.slow_queries || 0) : null);
-        setStatValue('header-avg', hasData ? formatMs(stats.average_time || 0) : null);
-        setStatValue('header-p95', hasData && stats.p95_time ? formatMs(stats.p95_time) : null);
+        // stats is the overview structure: { today: {...}, comparison: {...} }
+        const today = stats.today || {};
+        const hasData = today.total_queries && today.total_queries > 0;
+        setStatValue('header-total', hasData ? formatNumber(today.total_queries) : null);
+        setStatValue('header-slow', hasData ? formatNumber(today.slow_queries || 0) : null);
+        setStatValue('header-avg', hasData ? formatMs(today.avg_time || 0) : null);
+        setStatValue('header-p95', hasData ? formatMs(today.p95_time || 0) : null);
     }

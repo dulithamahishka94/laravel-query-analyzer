@@ -76,7 +76,7 @@ Query Lens is a comprehensive database query analyzer for Laravel applications. 
 Install the package via Composer:
 
 ```bash
-composer require coderflex/query-lens
+composer require gladehq/laravel-query-lens
 ```
 
 The package will automatically register its service provider.
@@ -643,7 +643,7 @@ Options:
 Use the facade for programmatic access:
 
 ```php
-use Coderflex\QueryLens\Facades\QueryLens;
+use GladeHQ\QueryLens\Facades\QueryLens;
 
 // Record a query manually
 QueryLens::recordQuery(
@@ -903,7 +903,7 @@ If upgrading from the previous `laravel/query-analyzer` package:
 1. **Update composer.json:**
    ```json
    "require": {
-       "coderflex/query-lens": "^1.0"
+       "gladehq/laravel-query-lens": "^1.0"
    }
    ```
 
@@ -913,7 +913,7 @@ If upgrading from the previous `laravel/query-analyzer` package:
    use Laravel\QueryAnalyzer\Facades\QueryAnalyzer;
 
    // New
-   use Coderflex\QueryLens\Facades\QueryLens;
+   use GladeHQ\QueryLens\Facades\QueryLens;
    ```
 
 3. **Update environment variables:**
@@ -947,7 +947,7 @@ If upgrading from the previous `laravel/query-analyzer` package:
 
 The `QueryAnalyzer` facade is still available as a deprecated alias:
 ```php
-use Coderflex\QueryLens\Facades\QueryAnalyzer; // Works but deprecated
+use GladeHQ\QueryLens\Facades\QueryAnalyzer; // Works but deprecated
 ```
 
 ---
@@ -960,14 +960,14 @@ Query Lens is open-sourced software licensed under the [MIT license](https://ope
 
 ## Support
 
-- **GitHub Issues:** [Report bugs and feature requests](https://github.com/coderflex/query-lens/issues)
-- **Documentation:** [https://query-lens.coderflex.com](https://query-lens.coderflex.com)
+- **GitHub Issues:** [Report bugs and feature requests](https://github.com/gladehq/laravel-query-lens/issues)
+- **Documentation:** [https://github.com/gladehq/laravel-query-lens](https://github.com/gladehq/laravel-query-lens)
 
 ---
 
 ## Credits
 
-Query Lens is developed and maintained by [Coderflex](https://coderflex.com).
+Query Lens is developed and maintained by [GladeHQ](https://github.com/gladehq).
 
 Inspired by:
 - Laravel Telescope

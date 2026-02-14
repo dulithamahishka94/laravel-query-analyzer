@@ -264,9 +264,14 @@ class QueryLensController extends Controller
     public function poll(Request $request): JsonResponse
     {
         $since = (float) $request->query('since', 0);
+        $period = $request->query('period', '24h');
 
         $newQueries = $this->storage->getQueriesSince($since, 50);
-        $stats = $this->analyzer->getStats();
+
+        // Use AggregationService for period-aware stats (includes p95_time)
+        // that match the overview endpoint's response structure.
+        $aggregationService = app(AggregationService::class);
+        $stats = $aggregationService->getOverviewStats($period);
 
         $alerts = [];
         if ($this->storage->supportsPersistence()) {
