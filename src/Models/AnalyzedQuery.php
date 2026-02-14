@@ -7,6 +7,7 @@ namespace GladeHQ\QueryLens\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use GladeHQ\QueryLens\Support\SqlNormalizer;
 
 class AnalyzedQuery extends Model
 {
@@ -125,22 +126,12 @@ class AnalyzedQuery extends Model
 
     public static function normalizeSql(string $sql): string
     {
-        // Replace numeric values
-        $normalized = preg_replace('/\b\d+\b/', '?', $sql);
-        // Replace string literals
-        $normalized = preg_replace("/'[^']*'/", '?', $normalized);
-        $normalized = preg_replace('/"[^"]*"/', '?', $normalized);
-        // Replace IN lists
-        $normalized = preg_replace('/\bIN\s*\([^)]+\)/i', 'IN (?)', $normalized);
-        // Normalize whitespace
-        $normalized = preg_replace('/\s+/', ' ', $normalized);
-
-        return trim($normalized);
+        return SqlNormalizer::normalize($sql);
     }
 
     public static function hashSql(string $sql): string
     {
-        return hash('sha256', self::normalizeSql($sql));
+        return SqlNormalizer::hash($sql);
     }
 
     public function toApiArray(): array

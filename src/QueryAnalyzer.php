@@ -9,7 +9,7 @@ use GladeHQ\QueryLens\DTOs\ComplexityAnalysis;
 use GladeHQ\QueryLens\DTOs\PerformanceRating;
 use GladeHQ\QueryLens\DTOs\QueryAnalysisResult;
 use GladeHQ\QueryLens\DTOs\QueryType;
-use GladeHQ\QueryLens\Models\AnalyzedQuery;
+use GladeHQ\QueryLens\Support\SqlNormalizer;
 
 class QueryAnalyzer
 {
@@ -209,7 +209,7 @@ class QueryAnalyzer
 
     protected function getStructureHash(string $sql): string
     {
-        return md5(AnalyzedQuery::normalizeSql($sql));
+        return SqlNormalizer::hash($sql);
     }
 
     protected function findOrigin(): array

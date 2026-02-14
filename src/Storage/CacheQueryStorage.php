@@ -5,6 +5,7 @@ namespace GladeHQ\QueryLens\Storage;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 use GladeHQ\QueryLens\Contracts\QueryStorage;
+use GladeHQ\QueryLens\Support\SqlNormalizer;
 
 class CacheQueryStorage implements QueryStorage
 {
@@ -64,12 +65,12 @@ class CacheQueryStorage implements QueryStorage
         // For cache, we need to count from the cached array
         if (!$query['request_id']) return 0;
         
-        $sqlHash = \GladeHQ\QueryLens\Models\AnalyzedQuery::hashSql($query['sql'] ?? '');
-        
+        $sqlHash = SqlNormalizer::hash($query['sql'] ?? '');
+
         $queries = $this->getByRequest($query['request_id']);
-        
+
         return collect($queries)
-            ->filter(fn($q) => \GladeHQ\QueryLens\Models\AnalyzedQuery::hashSql($q['sql'] ?? '') === $sqlHash)
+            ->filter(fn($q) => SqlNormalizer::hash($q['sql'] ?? '') === $sqlHash)
             ->count();
     }
 
@@ -119,7 +120,7 @@ class CacheQueryStorage implements QueryStorage
 
         // Group by normalized SQL hash
         $grouped = $queries->groupBy(function ($q) {
-            return $this->hashSql($q['sql'] ?? '');
+            return SqlNormalizer::hash($q['sql'] ?? '');
         });
 
         $ranked = $grouped->map(function ($group, $hash) {
@@ -246,17 +247,6 @@ class CacheQueryStorage implements QueryStorage
             'week' => now()->subWeek(),
             default => now()->subDay(),
         };
-    }
-
-    protected function hashSql(string $sql): string
-    {
-        // Normalize SQL by removing literals
-        $normalized = preg_replace('/\b\d+\b/', '?', $sql);
-        $normalized = preg_replace("/'[^']*'/", '?', $normalized);
-        $normalized = preg_replace('/"[^"]*"/', '?', $normalized);
-        $normalized = preg_replace('/\s+/', ' ', $normalized);
-
-        return md5(trim($normalized));
     }
 
     protected function percentile(\Illuminate\Support\Collection $values, int $percentile): float
