@@ -12,6 +12,7 @@ use GladeHQ\QueryLens\QueryAnalyzer;
 use GladeHQ\QueryLens\Services\AggregationService;
 use GladeHQ\QueryLens\Services\DashboardService;
 use GladeHQ\QueryLens\Services\ExplainService;
+use GladeHQ\QueryLens\Services\IndexAdvisor;
 use GladeHQ\QueryLens\Services\QueryExportService;
 
 class QueryLensController extends Controller
@@ -310,6 +311,24 @@ class QueryLensController extends Controller
                 ? $retentionService->getStorageStats()
                 : null,
         ]);
+    }
+
+    public function indexSuggestions(Request $request): JsonResponse
+    {
+        $advisor = app(IndexAdvisor::class);
+
+        if ($sql = $request->query('sql')) {
+            $result = $advisor->analyzeQuery($sql);
+            return $this->noCacheResponse(response()->json($result));
+        }
+
+        $days = (int) $request->query('days', 7);
+        $suggestions = $advisor->analyzePatterns($days);
+
+        return $this->noCacheResponse(response()->json([
+            'suggestions' => $suggestions,
+            'days_analyzed' => $days,
+        ]));
     }
 
     protected function noCacheResponse($response)

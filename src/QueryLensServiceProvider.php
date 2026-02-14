@@ -7,6 +7,7 @@ use Illuminate\Support\ServiceProvider;
 use GladeHQ\QueryLens\Commands\AggregateCommand;
 use GladeHQ\QueryLens\Commands\AnalyzeQueriesCommand;
 use GladeHQ\QueryLens\Commands\PruneCommand;
+use GladeHQ\QueryLens\Commands\SuggestIndexesCommand;
 use GladeHQ\QueryLens\Contracts\QueryStorage;
 use GladeHQ\QueryLens\Http\Controllers\AlertController;
 use GladeHQ\QueryLens\Http\Controllers\QueryLensController;
@@ -15,6 +16,7 @@ use GladeHQ\QueryLens\Listeners\QueryListener;
 use GladeHQ\QueryLens\Services\AggregationService;
 use GladeHQ\QueryLens\Services\AlertService;
 use GladeHQ\QueryLens\Services\DataRetentionService;
+use GladeHQ\QueryLens\Services\IndexAdvisor;
 use GladeHQ\QueryLens\Filament\QueryLensDataService;
 use GladeHQ\QueryLens\Filament\QueryLensPlugin;
 use GladeHQ\QueryLens\Storage\CacheQueryStorage;
@@ -77,6 +79,12 @@ class QueryLensServiceProvider extends ServiceProvider
 
         $this->app->singleton(QueryListener::class);
 
+        $this->app->singleton(IndexAdvisor::class, function ($app) {
+            $advisor = new IndexAdvisor();
+            $advisor->setStorage($app->make(QueryStorage::class));
+            return $advisor;
+        });
+
         // Register Filament data service (usable with or without Filament panel)
         $this->app->singleton(QueryLensDataService::class, function ($app) {
             return new QueryLensDataService(
@@ -107,6 +115,7 @@ class QueryLensServiceProvider extends ServiceProvider
                 AnalyzeQueriesCommand::class,
                 AggregateCommand::class,
                 PruneCommand::class,
+                SuggestIndexesCommand::class,
             ]);
         }
 
@@ -159,6 +168,10 @@ class QueryLensServiceProvider extends ServiceProvider
                     Route::get('requests', [QueryLensController::class, 'requestsV2'])->name('query-lens.api.v2.requests');
                     Route::get('storage', [QueryLensController::class, 'storageInfo'])->name('query-lens.api.v2.storage');
                     Route::get('search', [QueryLensController::class, 'search'])->name('query-lens.api.v2.search');
+
+                    // Index suggestions
+                    Route::get('index-suggestions', [QueryLensController::class, 'indexSuggestions'])
+                        ->name('query-lens.api.v2.index-suggestions');
 
                     // Alert management endpoints
                     Route::get('alerts', [AlertController::class, 'index'])->name('query-lens.api.v2.alerts.index');
