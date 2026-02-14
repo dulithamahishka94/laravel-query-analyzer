@@ -68,10 +68,21 @@ class QueryLensServiceProvider extends ServiceProvider
         });
 
         $this->app->scoped(QueryAnalyzer::class, function ($app) {
+            $storage = $app->make(QueryStorage::class);
+
             $analyzer = new QueryAnalyzer(
                 $app['config']['query-lens'],
-                $app->make(QueryStorage::class)
+                $storage
             );
+
+            // Wire the analyzer back into the storage driver so it can
+            // temporarily disable recording during its own internal operations.
+            // This breaks the circular dependency: Storage is created first
+            // (without analyzer), then Analyzer is created (with storage),
+            // and finally the analyzer reference is injected back.
+            if (method_exists($storage, 'setAnalyzer')) {
+                $storage->setAnalyzer($analyzer);
+            }
 
             // Initialize Request ID immediately for HTTP requests to catch early queries
             // (e.g., Service Provider boot queries) that run before Middleware.

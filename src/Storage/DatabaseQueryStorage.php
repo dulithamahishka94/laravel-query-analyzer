@@ -17,239 +17,285 @@ use GladeHQ\QueryLens\Services\AlertService;
 class DatabaseQueryStorage implements QueryStorage
 {
     protected ?AlertService $alertService = null;
+    protected ?\GladeHQ\QueryLens\QueryAnalyzer $analyzer = null;
 
     public function setAlertService(AlertService $alertService): void
     {
         $this->alertService = $alertService;
     }
 
+    public function setAnalyzer(\GladeHQ\QueryLens\QueryAnalyzer $analyzer): void
+    {
+        $this->analyzer = $analyzer;
+    }
+
+    /**
+     * Execute a callback with query recording temporarily disabled.
+     *
+     * This prevents the database storage driver's own Eloquent operations
+     * (INSERT into query_lens_queries, SELECT from query_lens_requests, etc.)
+     * from being captured by the QueryListener. This is the secondary defense
+     * layer -- the primary layer is the table-prefix check in QueryAnalyzer::recordQuery().
+     */
+    protected function withoutRecording(callable $callback): mixed
+    {
+        if (!$this->analyzer) {
+            return $callback();
+        }
+
+        $wasRecording = $this->analyzer->isRecording();
+        $this->analyzer->disableRecording();
+
+        try {
+            return $callback();
+        } finally {
+            if ($wasRecording) {
+                $this->analyzer->enableRecording();
+            }
+        }
+    }
+
     public function store(array $query): void
     {
-        $requestId = $query['request_id'] ?? null;
+        $this->withoutRecording(function () use ($query) {
+            $requestId = $query['request_id'] ?? null;
 
-        // Ensure request exists
-        if ($requestId) {
-            $this->ensureRequestExists($requestId, $query);
-        }
+            // Ensure request exists
+            if ($requestId) {
+                $this->ensureRequestExists($requestId, $query);
+            }
 
-        // Normalize and hash SQL
-        $sqlHash = AnalyzedQuery::hashSql($query['sql'] ?? '');
-        $sqlNormalized = AnalyzedQuery::normalizeSql($query['sql'] ?? '');
+            // Normalize and hash SQL
+            $sqlHash = AnalyzedQuery::hashSql($query['sql'] ?? '');
+            $sqlNormalized = AnalyzedQuery::normalizeSql($query['sql'] ?? '');
 
-        // Extract analysis data
-        $analysis = $query['analysis'] ?? [];
-        $issues = $analysis['issues'] ?? [];
-        $isNPlusOne = collect($issues)->contains(fn($i) => ($i['type'] ?? '') === 'n+1');
+            // Extract analysis data
+            $analysis = $query['analysis'] ?? [];
+            $issues = $analysis['issues'] ?? [];
+            $isNPlusOne = collect($issues)->contains(fn($i) => ($i['type'] ?? '') === 'n+1');
 
-        // Create query record
-        $analyzedQuery = AnalyzedQuery::create([
-            'id' => $query['id'] ?? Str::orderedUuid()->toString(),
-            'request_id' => $requestId,
-            'sql_hash' => $sqlHash,
-            'sql' => $query['sql'],
-            'sql_normalized' => $sqlNormalized,
-            'bindings' => $query['bindings'] ?? [],
-            'time' => $query['time'] ?? 0,
-            'connection' => $query['connection'] ?? 'default',
-            'type' => strtoupper($analysis['type'] ?? 'OTHER'),
-            'performance_rating' => $analysis['performance']['rating'] ?? 'fast',
-            'is_slow' => $analysis['performance']['is_slow'] ?? false,
-            'complexity_score' => $analysis['complexity']['score'] ?? 0,
-            'complexity_level' => $analysis['complexity']['level'] ?? 'low',
-            'analysis' => [
-                'recommendations' => $analysis['recommendations'] ?? [],
-                'issues' => $issues,
-            ],
-            'origin' => $query['origin'] ?? ['file' => 'unknown', 'line' => 0, 'is_vendor' => false],
-            'is_n_plus_one' => $isNPlusOne,
-            'n_plus_one_count' => $isNPlusOne ? ($this->countSimilarQueries($requestId, $sqlHash) + 1) : 0,
-            'created_at' => now(),
-        ]);
+            // Create query record
+            $analyzedQuery = AnalyzedQuery::create([
+                'id' => $query['id'] ?? Str::orderedUuid()->toString(),
+                'request_id' => $requestId,
+                'sql_hash' => $sqlHash,
+                'sql' => $query['sql'],
+                'sql_normalized' => $sqlNormalized,
+                'bindings' => $query['bindings'] ?? [],
+                'time' => $query['time'] ?? 0,
+                'connection' => $query['connection'] ?? 'default',
+                'type' => strtoupper($analysis['type'] ?? 'OTHER'),
+                'performance_rating' => $analysis['performance']['rating'] ?? 'fast',
+                'is_slow' => $analysis['performance']['is_slow'] ?? false,
+                'complexity_score' => $analysis['complexity']['score'] ?? 0,
+                'complexity_level' => $analysis['complexity']['level'] ?? 'low',
+                'analysis' => [
+                    'recommendations' => $analysis['recommendations'] ?? [],
+                    'issues' => $issues,
+                ],
+                'origin' => $query['origin'] ?? ['file' => 'unknown', 'line' => 0, 'is_vendor' => false],
+                'is_n_plus_one' => $isNPlusOne,
+                'n_plus_one_count' => $isNPlusOne ? ($this->countSimilarQueries($requestId, $sqlHash) + 1) : 0,
+                'created_at' => now(),
+            ]);
 
-        // Check alerts
-        if ($this->alertService) {
-            $this->alertService->checkAlerts($analyzedQuery);
-        }
+            // Check alerts
+            if ($this->alertService) {
+                $this->alertService->checkAlerts($analyzedQuery);
+            }
+        });
     }
 
     public function get(int $limit = 100): array
     {
-        return AnalyzedQuery::orderByDesc('created_at')
+        return $this->withoutRecording(fn() => AnalyzedQuery::orderByDesc('created_at')
             ->limit($limit)
             ->get()
             ->map(fn($q) => $q->toApiArray())
-            ->toArray();
+            ->toArray());
     }
 
     public function clear(): void
     {
-        AnalyzedQuery::truncate();
-        AnalyzedRequest::truncate();
-        QueryAggregate::truncate();
-        TopQuery::truncate();
-        AlertLog::truncate();
+        $this->withoutRecording(function () {
+            AnalyzedQuery::truncate();
+            AnalyzedRequest::truncate();
+            QueryAggregate::truncate();
+            TopQuery::truncate();
+            AlertLog::truncate();
+        });
     }
 
     public function getByRequest(string $requestId): array
     {
-        return AnalyzedQuery::where('request_id', $requestId)
+        return $this->withoutRecording(fn() => AnalyzedQuery::where('request_id', $requestId)
             ->orderBy('created_at')
             ->get()
             ->map(fn($q) => $q->toApiArray())
-            ->toArray();
+            ->toArray());
     }
 
     public function getStats(Carbon $start, Carbon $end): array
     {
-        $queries = AnalyzedQuery::inPeriod($start, $end);
+        return $this->withoutRecording(function () use ($start, $end) {
+            $queries = AnalyzedQuery::inPeriod($start, $end);
 
-        $total = $queries->count();
-        $slowCount = (clone $queries)->slow()->count();
-        $times = (clone $queries)->pluck('time');
+            $total = $queries->count();
+            $slowCount = (clone $queries)->slow()->count();
+            $times = (clone $queries)->pluck('time');
 
-        return [
-            'total_queries' => $total,
-            'slow_queries' => $slowCount,
-            'avg_time' => $times->avg() ?? 0,
-            'max_time' => $times->max() ?? 0,
-            'total_time' => $times->sum(),
-            'n_plus_one_count' => (clone $queries)->nPlusOne()->count(),
-            'issue_count' => (clone $queries)->withIssues()->count(),
-        ];
+            return [
+                'total_queries' => $total,
+                'slow_queries' => $slowCount,
+                'avg_time' => $times->avg() ?? 0,
+                'max_time' => $times->max() ?? 0,
+                'total_time' => $times->sum(),
+                'n_plus_one_count' => (clone $queries)->nPlusOne()->count(),
+                'issue_count' => (clone $queries)->withIssues()->count(),
+            ];
+        });
     }
 
     public function getTopQueries(string $type, string $period, int $limit = 10): array
     {
-        // Try to get pre-computed rankings first
-        $periodStart = TopQuery::getPeriodStart($period);
-        $precomputed = TopQuery::byRankingType($type)
-            ->byPeriod($period)
-            ->forPeriodStart($periodStart)
-            ->topN($limit)
-            ->get();
+        return $this->withoutRecording(function () use ($type, $period, $limit) {
+            // Try to get pre-computed rankings first
+            $periodStart = TopQuery::getPeriodStart($period);
+            $precomputed = TopQuery::byRankingType($type)
+                ->byPeriod($period)
+                ->forPeriodStart($periodStart)
+                ->topN($limit)
+                ->get();
 
-        if ($precomputed->isNotEmpty()) {
-            return $precomputed->toArray();
-        }
+            if ($precomputed->isNotEmpty()) {
+                return $precomputed->toArray();
+            }
 
-        // Fall back to computing on-the-fly
-        return $this->computeTopQueries($type, $period, $limit);
+            // Fall back to computing on-the-fly
+            return $this->computeTopQueries($type, $period, $limit);
+        });
     }
 
     public function getAggregates(string $periodType, Carbon $start, Carbon $end): array
     {
-        return QueryAggregate::where('period_type', $periodType)
+        return $this->withoutRecording(fn() => QueryAggregate::where('period_type', $periodType)
             ->inRange($start, $end)
             ->orderBy('period_start')
             ->get()
-            ->toArray();
+            ->toArray());
     }
 
     public function storeRequest(string $requestId, array $data): void
     {
-        AnalyzedRequest::updateOrCreate(
-            ['id' => $requestId],
-            array_merge($data, ['created_at' => now()])
-        );
+        $this->withoutRecording(function () use ($requestId, $data) {
+            AnalyzedRequest::updateOrCreate(
+                ['id' => $requestId],
+                array_merge($data, ['created_at' => now()])
+            );
+        });
     }
 
     public function getRequests(int $limit = 100, array $filters = []): array
     {
-        $query = AnalyzedRequest::query()->orderByDesc('created_at');
+        return $this->withoutRecording(function () use ($limit, $filters) {
+            $query = AnalyzedRequest::query()->orderByDesc('created_at');
 
-        if (!empty($filters['method'])) {
-            $query->byMethod($filters['method']);
-        }
+            if (!empty($filters['method'])) {
+                $query->byMethod($filters['method']);
+            }
 
-        if (!empty($filters['path'])) {
-            $query->byPath($filters['path']);
-        }
+            if (!empty($filters['path'])) {
+                $query->byPath($filters['path']);
+            }
 
-        if (!empty($filters['slow_only'])) {
-            $query->withSlowQueries();
-        }
+            if (!empty($filters['slow_only'])) {
+                $query->withSlowQueries();
+            }
 
-        return $query->limit($limit)
-            ->get()
-            ->map(function ($request) {
-                return [
-                    'request_id' => $request->id,
-                    'method' => $request->method,
-                    'path' => $request->path,
-                    'route_name' => $request->route_name,
-                    'timestamp' => $request->created_at?->timestamp ?? time(),
-                    'query_count' => $request->query_count,
-                    'slow_count' => $request->slow_count,
-                    'avg_time' => $request->avg_time,
-                ];
-            })
-            ->toArray();
+            return $query->limit($limit)
+                ->get()
+                ->map(function ($request) {
+                    return [
+                        'request_id' => $request->id,
+                        'method' => $request->method,
+                        'path' => $request->path,
+                        'route_name' => $request->route_name,
+                        'timestamp' => $request->created_at?->timestamp ?? time(),
+                        'query_count' => $request->query_count,
+                        'slow_count' => $request->slow_count,
+                        'avg_time' => $request->avg_time,
+                    ];
+                })
+                ->toArray();
+        });
     }
 
     public function getQueriesSince(float $since, int $limit = 100): array
     {
-        return AnalyzedQuery::where('created_at', '>', Carbon::createFromTimestamp($since))
+        return $this->withoutRecording(fn() => AnalyzedQuery::where('created_at', '>', Carbon::createFromTimestamp($since))
             ->orderByDesc('created_at')
             ->limit($limit)
             ->get()
             ->map(fn($q) => $q->toApiArray())
-            ->toArray();
+            ->toArray());
     }
 
     public function search(array $filters = []): array
     {
-        $page = max(1, (int) ($filters['page'] ?? 1));
-        $perPage = max(1, min(100, (int) ($filters['per_page'] ?? 15)));
+        return $this->withoutRecording(function () use ($filters) {
+            $page = max(1, (int) ($filters['page'] ?? 1));
+            $perPage = max(1, min(100, (int) ($filters['per_page'] ?? 15)));
 
-        $query = AnalyzedQuery::query()->orderByDesc('created_at');
+            $query = AnalyzedQuery::query()->orderByDesc('created_at');
 
-        if (!empty($filters['sql_like'])) {
-            $query->where('sql_normalized', 'like', '%' . $filters['sql_like'] . '%');
-        }
+            if (!empty($filters['sql_like'])) {
+                $query->where('sql_normalized', 'like', '%' . $filters['sql_like'] . '%');
+            }
 
-        if (!empty($filters['table_name'])) {
-            $query->where('sql', 'like', '%' . $filters['table_name'] . '%');
-        }
+            if (!empty($filters['table_name'])) {
+                $query->where('sql', 'like', '%' . $filters['table_name'] . '%');
+            }
 
-        if (!empty($filters['time_from'])) {
-            $query->where('created_at', '>=', Carbon::parse($filters['time_from']));
-        }
+            if (!empty($filters['time_from'])) {
+                $query->where('created_at', '>=', Carbon::parse($filters['time_from']));
+            }
 
-        if (!empty($filters['time_to'])) {
-            $query->where('created_at', '<=', Carbon::parse($filters['time_to']));
-        }
+            if (!empty($filters['time_to'])) {
+                $query->where('created_at', '<=', Carbon::parse($filters['time_to']));
+            }
 
-        if (isset($filters['min_duration'])) {
-            $query->where('time', '>=', (float) $filters['min_duration']);
-        }
+            if (isset($filters['min_duration'])) {
+                $query->where('time', '>=', (float) $filters['min_duration']);
+            }
 
-        if (isset($filters['max_duration'])) {
-            $query->where('time', '<=', (float) $filters['max_duration']);
-        }
+            if (isset($filters['max_duration'])) {
+                $query->where('time', '<=', (float) $filters['max_duration']);
+            }
 
-        if (!empty($filters['type'])) {
-            $query->where('type', strtoupper($filters['type']));
-        }
+            if (!empty($filters['type'])) {
+                $query->where('type', strtoupper($filters['type']));
+            }
 
-        if (isset($filters['is_slow'])) {
-            $query->where('is_slow', (bool) $filters['is_slow']);
-        }
+            if (isset($filters['is_slow'])) {
+                $query->where('is_slow', (bool) $filters['is_slow']);
+            }
 
-        $total = $query->count();
+            $total = $query->count();
 
-        $data = $query
-            ->offset(($page - 1) * $perPage)
-            ->limit($perPage)
-            ->get()
-            ->map(fn($q) => $q->toApiArray())
-            ->toArray();
+            $data = $query
+                ->offset(($page - 1) * $perPage)
+                ->limit($perPage)
+                ->get()
+                ->map(fn($q) => $q->toApiArray())
+                ->toArray();
 
-        return [
-            'data' => $data,
-            'total' => $total,
-            'page' => $page,
-            'per_page' => $perPage,
-        ];
+            return [
+                'data' => $data,
+                'total' => $total,
+                'page' => $page,
+                'per_page' => $perPage,
+            ];
+        });
     }
 
     public function supportsPersistence(): bool
@@ -259,7 +305,7 @@ class DatabaseQueryStorage implements QueryStorage
 
     public function finalizeRequest(string $requestId): void
     {
-        $this->updateRequestAggregates($requestId);
+        $this->withoutRecording(fn() => $this->updateRequestAggregates($requestId));
     }
 
     protected function ensureRequestExists(string $requestId, array $query): void

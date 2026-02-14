@@ -95,8 +95,17 @@ class QueryAnalyzer
             return;
         }
 
-        // 1. Ignore queries related to the analyzer's own cache storage
-        if (str_contains($sql, 'laravel_query_lens_queries_v3')) {
+        // 1. Ignore ALL queries targeting Query Lens's own tables (database driver)
+        // and cache keys (cache driver). This is the primary defense against
+        // self-observation -- the package must never record its own internal queries.
+        $tablePrefix = $this->config['storage']['table_prefix'] ?? 'query_lens_';
+        if (str_contains($sql, $tablePrefix)) {
+            return;
+        }
+
+        // Also check the cache driver's key in both SQL and bindings, as
+        // database-backed cache drivers (e.g. Redis via DB) use parameter binding.
+        if (str_contains($sql, 'laravel_query_lens_')) {
             return;
         }
 
@@ -105,9 +114,9 @@ class QueryAnalyzer
             return;
         }
 
-        // Also check bindings for the cache key, as database-backed cache drivers use parameter binding
+        // Also check bindings for internal cache/table references
         foreach ($bindings as $binding) {
-            if (is_string($binding) && str_contains($binding, 'laravel_query_lens_queries_v3')) {
+            if (is_string($binding) && (str_contains($binding, $tablePrefix) || str_contains($binding, 'laravel_query_lens_'))) {
                 return;
             }
         }
@@ -161,8 +170,8 @@ class QueryAnalyzer
             return;
         }
 
-        // Ignore analyzer's own cache keys
-        if (str_contains($key, 'laravel_query_lens_queries_v3')) {
+        // Ignore analyzer's own cache keys (covers all internal cache operations)
+        if (str_contains($key, 'laravel_query_lens_')) {
             return;
         }
 

@@ -14,6 +14,7 @@ class CacheQueryStorage implements QueryStorage
     protected int $ttl = 3600; // 1 hour
     protected ?string $store = null;
     protected ?\GladeHQ\QueryLens\Services\AlertService $alertService = null;
+    protected ?\GladeHQ\QueryLens\QueryAnalyzer $analyzer = null;
 
     public function __construct(?string $store = null)
     {
@@ -25,22 +26,56 @@ class CacheQueryStorage implements QueryStorage
         $this->alertService = $alertService;
     }
 
+    public function setAnalyzer(\GladeHQ\QueryLens\QueryAnalyzer $analyzer): void
+    {
+        $this->analyzer = $analyzer;
+    }
+
+    /**
+     * Execute a callback with query recording temporarily disabled.
+     *
+     * This prevents the cache storage driver's own operations from being
+     * captured by the QueryListener. When the cache is backed by a database
+     * driver, Cache::store()->get/put fire QueryExecuted events; when using
+     * any driver, CacheHit/CacheMiss events fire. Both must be silenced
+     * during internal operations.
+     */
+    protected function withoutRecording(callable $callback): mixed
+    {
+        if (!$this->analyzer) {
+            return $callback();
+        }
+
+        $wasRecording = $this->analyzer->isRecording();
+        $this->analyzer->disableRecording();
+
+        try {
+            return $callback();
+        } finally {
+            if ($wasRecording) {
+                $this->analyzer->enableRecording();
+            }
+        }
+    }
+
     public function store(array $query): void
     {
-        $queries = $this->get(10000);
+        $this->withoutRecording(function () use ($query) {
+            $queries = $this->getRaw(10000);
 
-        // Add new query to the beginning
-        array_unshift($queries, $query);
+            // Add new query to the beginning
+            array_unshift($queries, $query);
 
-        // Limit to max items (e.g. 10000) to prevent cache explosion
-        $queries = array_slice($queries, 0, 10000);
+            // Limit to max items (e.g. 10000) to prevent cache explosion
+            $queries = array_slice($queries, 0, 10000);
 
-        Cache::store($this->store)->put($this->cacheKey, $queries, $this->ttl);
+            Cache::store($this->store)->put($this->cacheKey, $queries, $this->ttl);
 
-        // Check alerts
-        if ($this->alertService) {
-            $this->checkAlerts($query);
-        }
+            // Check alerts
+            if ($this->alertService) {
+                $this->checkAlerts($query);
+            }
+        });
     }
 
     protected function checkAlerts(array $query): void
@@ -74,148 +109,174 @@ class CacheQueryStorage implements QueryStorage
             ->count();
     }
 
-    public function get(int $limit = 100): array
+    /**
+     * Internal cache read -- no recording guard (caller is responsible).
+     */
+    protected function getRaw(int $limit = 10000): array
     {
         $queries = Cache::store($this->store)->get($this->cacheKey, []);
 
         return array_slice($queries, 0, $limit);
     }
 
+    public function get(int $limit = 100): array
+    {
+        return $this->withoutRecording(function () use ($limit) {
+            return $this->getRaw($limit);
+        });
+    }
+
     public function clear(): void
     {
-        Cache::store($this->store)->forget($this->cacheKey);
-        Cache::store($this->store)->forget($this->requestsCacheKey);
+        $this->withoutRecording(function () {
+            Cache::store($this->store)->forget($this->cacheKey);
+            Cache::store($this->store)->forget($this->requestsCacheKey);
+        });
     }
 
     public function getByRequest(string $requestId): array
     {
-        $queries = $this->get(10000);
+        return $this->withoutRecording(function () use ($requestId) {
+            $queries = $this->getRaw(10000);
 
-        return array_filter($queries, fn($q) => ($q['request_id'] ?? '') === $requestId);
+            return array_filter($queries, fn($q) => ($q['request_id'] ?? '') === $requestId);
+        });
     }
 
     public function getStats(Carbon $start, Carbon $end): array
     {
-        $queries = collect($this->get(10000))
-            ->filter(fn($q) => ($q['timestamp'] ?? 0) >= $start->timestamp && ($q['timestamp'] ?? 0) <= $end->timestamp);
+        return $this->withoutRecording(function () use ($start, $end) {
+            $queries = collect($this->getRaw(10000))
+                ->filter(fn($q) => ($q['timestamp'] ?? 0) >= $start->timestamp && ($q['timestamp'] ?? 0) <= $end->timestamp);
 
-        $total = $queries->count();
-        $slowCount = $queries->where('analysis.performance.is_slow', true)->count();
+            $total = $queries->count();
+            $slowCount = $queries->where('analysis.performance.is_slow', true)->count();
 
-        return [
-            'total_queries' => $total,
-            'slow_queries' => $slowCount,
-            'avg_time' => $queries->avg('time') ?? 0,
-            'max_time' => $queries->max('time') ?? 0,
-            'total_time' => $queries->sum('time'),
-        ];
+            return [
+                'total_queries' => $total,
+                'slow_queries' => $slowCount,
+                'avg_time' => $queries->avg('time') ?? 0,
+                'max_time' => $queries->max('time') ?? 0,
+                'total_time' => $queries->sum('time'),
+            ];
+        });
     }
 
     public function getTopQueries(string $type, string $period, int $limit = 10): array
     {
-        $queries = collect($this->get(10000));
-        $cutoff = $this->getPeriodCutoff($period);
+        return $this->withoutRecording(function () use ($type, $period, $limit) {
+            $queries = collect($this->getRaw(10000));
+            $cutoff = $this->getPeriodCutoff($period);
 
-        $queries = $queries->filter(fn($q) => ($q['timestamp'] ?? 0) >= $cutoff->timestamp);
+            $queries = $queries->filter(fn($q) => ($q['timestamp'] ?? 0) >= $cutoff->timestamp);
 
-        // Group by normalized SQL hash
-        $grouped = $queries->groupBy(function ($q) {
-            return SqlNormalizer::hash($q['sql'] ?? '');
+            // Group by normalized SQL hash
+            $grouped = $queries->groupBy(function ($q) {
+                return SqlNormalizer::hash($q['sql'] ?? '');
+            });
+
+            $ranked = $grouped->map(function ($group, $hash) {
+                $sample = $group->first();
+                return [
+                    'sql_hash' => $hash,
+                    'sql_sample' => $sample['sql'] ?? '',
+                    'count' => $group->count(),
+                    'avg_time' => $group->avg('time') ?? 0,
+                    'max_time' => $group->max('time') ?? 0,
+                    'total_time' => $group->sum('time'),
+                    'issue_count' => $group->sum(fn($q) => count($q['analysis']['issues'] ?? [])),
+                ];
+            });
+
+            // Sort based on type
+            $sorted = match ($type) {
+                'slowest' => $ranked->sortByDesc('avg_time'),
+                'most_frequent' => $ranked->sortByDesc('count'),
+                'most_issues' => $ranked->sortByDesc('issue_count'),
+                default => $ranked->sortByDesc('total_time'),
+            };
+
+            return $sorted->take($limit)->values()->toArray();
         });
-
-        $ranked = $grouped->map(function ($group, $hash) {
-            $sample = $group->first();
-            return [
-                'sql_hash' => $hash,
-                'sql_sample' => $sample['sql'] ?? '',
-                'count' => $group->count(),
-                'avg_time' => $group->avg('time') ?? 0,
-                'max_time' => $group->max('time') ?? 0,
-                'total_time' => $group->sum('time'),
-                'issue_count' => $group->sum(fn($q) => count($q['analysis']['issues'] ?? [])),
-            ];
-        });
-
-        // Sort based on type
-        $sorted = match ($type) {
-            'slowest' => $ranked->sortByDesc('avg_time'),
-            'most_frequent' => $ranked->sortByDesc('count'),
-            'most_issues' => $ranked->sortByDesc('issue_count'),
-            default => $ranked->sortByDesc('total_time'),
-        };
-
-        return $sorted->take($limit)->values()->toArray();
     }
 
     public function getAggregates(string $periodType, Carbon $start, Carbon $end): array
     {
-        // Cache storage computes aggregates on-the-fly from raw data
-        $queries = collect($this->get(10000))
-            ->filter(fn($q) => ($q['timestamp'] ?? 0) >= $start->timestamp && ($q['timestamp'] ?? 0) <= $end->timestamp);
+        return $this->withoutRecording(function () use ($periodType, $start, $end) {
+            // Cache storage computes aggregates on-the-fly from raw data
+            $queries = collect($this->getRaw(10000))
+                ->filter(fn($q) => ($q['timestamp'] ?? 0) >= $start->timestamp && ($q['timestamp'] ?? 0) <= $end->timestamp);
 
-        if ($queries->isEmpty()) {
-            return [];
-        }
+            if ($queries->isEmpty()) {
+                return [];
+            }
 
-        // Group by period
-        $grouped = $queries->groupBy(function ($q) use ($periodType) {
-            $timestamp = $q['timestamp'] ?? time();
-            $carbon = Carbon::createFromTimestamp($timestamp);
-            return $periodType === 'hour'
-                ? $carbon->startOfHour()->toIso8601String()
-                : $carbon->startOfDay()->toIso8601String();
+            // Group by period
+            $grouped = $queries->groupBy(function ($q) use ($periodType) {
+                $timestamp = $q['timestamp'] ?? time();
+                $carbon = Carbon::createFromTimestamp($timestamp);
+                return $periodType === 'hour'
+                    ? $carbon->startOfHour()->toIso8601String()
+                    : $carbon->startOfDay()->toIso8601String();
+            });
+
+            return $grouped->map(function ($group, $periodStart) use ($periodType) {
+                $times = $group->pluck('time')->sort()->values();
+
+                return [
+                    'period_type' => $periodType,
+                    'period_start' => $periodStart,
+                    'total_queries' => $group->count(),
+                    'slow_queries' => $group->where('analysis.performance.is_slow', true)->count(),
+                    'avg_time' => $times->avg() ?? 0,
+                    'p50_time' => $this->percentile($times, 50),
+                    'p95_time' => $this->percentile($times, 95),
+                    'p99_time' => $this->percentile($times, 99),
+                    'max_time' => $times->max() ?? 0,
+                    'min_time' => $times->min() ?? 0,
+                ];
+            })->values()->toArray();
         });
-
-        return $grouped->map(function ($group, $periodStart) use ($periodType) {
-            $times = $group->pluck('time')->sort()->values();
-
-            return [
-                'period_type' => $periodType,
-                'period_start' => $periodStart,
-                'total_queries' => $group->count(),
-                'slow_queries' => $group->where('analysis.performance.is_slow', true)->count(),
-                'avg_time' => $times->avg() ?? 0,
-                'p50_time' => $this->percentile($times, 50),
-                'p95_time' => $this->percentile($times, 95),
-                'p99_time' => $this->percentile($times, 99),
-                'max_time' => $times->max() ?? 0,
-                'min_time' => $times->min() ?? 0,
-            ];
-        })->values()->toArray();
     }
 
     public function storeRequest(string $requestId, array $data): void
     {
-        $requests = Cache::store($this->store)->get($this->requestsCacheKey, []);
-        $requests[$requestId] = array_merge($requests[$requestId] ?? [], $data, ['updated_at' => time()]);
+        $this->withoutRecording(function () use ($requestId, $data) {
+            $requests = Cache::store($this->store)->get($this->requestsCacheKey, []);
+            $requests[$requestId] = array_merge($requests[$requestId] ?? [], $data, ['updated_at' => time()]);
 
-        // Limit to 1000 requests
-        if (count($requests) > 1000) {
-            $requests = array_slice($requests, -1000, 1000, true);
-        }
+            // Limit to 1000 requests
+            if (count($requests) > 1000) {
+                $requests = array_slice($requests, -1000, 1000, true);
+            }
 
-        Cache::store($this->store)->put($this->requestsCacheKey, $requests, $this->ttl);
+            Cache::store($this->store)->put($this->requestsCacheKey, $requests, $this->ttl);
+        });
     }
 
     public function getRequests(int $limit = 100, array $filters = []): array
     {
-        $requests = Cache::store($this->store)->get($this->requestsCacheKey, []);
+        return $this->withoutRecording(function () use ($limit, $filters) {
+            $requests = Cache::store($this->store)->get($this->requestsCacheKey, []);
 
-        // Sort by updated_at descending
-        uasort($requests, fn($a, $b) => ($b['updated_at'] ?? 0) - ($a['updated_at'] ?? 0));
+            // Sort by updated_at descending
+            uasort($requests, fn($a, $b) => ($b['updated_at'] ?? 0) - ($a['updated_at'] ?? 0));
 
-        return array_slice($requests, 0, $limit, true);
+            return array_slice($requests, 0, $limit, true);
+        });
     }
 
     public function getQueriesSince(float $since, int $limit = 100): array
     {
-        $queries = $this->get(10000);
+        return $this->withoutRecording(function () use ($since, $limit) {
+            $queries = $this->getRaw(10000);
 
-        return array_slice(
-            array_filter($queries, fn($q) => ($q['timestamp'] ?? 0) > $since),
-            0,
-            $limit
-        );
+            return array_slice(
+                array_filter($queries, fn($q) => ($q['timestamp'] ?? 0) > $since),
+                0,
+                $limit
+            );
+        });
     }
 
     public function finalizeRequest(string $requestId): void
