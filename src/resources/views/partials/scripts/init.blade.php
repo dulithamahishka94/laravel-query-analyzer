@@ -77,6 +77,15 @@
     }
 
     // ==================== Overview Stats ====================
+    function setStatValue(elementId, value, fallback = '-') {
+        document.getElementById(elementId).textContent = value !== null ? value : fallback;
+    }
+
+    function setStatsToFallback() {
+        ['stat-total', 'stat-slow', 'stat-avg', 'stat-p95'].forEach(id => setStatValue(id, null));
+        ['header-total', 'header-slow', 'header-avg', 'header-p95'].forEach(id => setStatValue(id, null));
+    }
+
     async function loadOverviewStats() {
         try {
             const period = document.getElementById('period-select').value;
@@ -87,17 +96,28 @@
             const comparison = data.comparison || {};
             const label = getPeriodLabel(period);
 
-            document.getElementById('stat-total').textContent = formatNumber(today.total_queries || 0);
-            document.getElementById('stat-slow').textContent = formatNumber(today.slow_queries || 0);
-            document.getElementById('stat-avg').textContent = formatMs(today.avg_time || 0);
-            document.getElementById('stat-p95').textContent = formatMs(today.p95_time || 0);
+            const hasData = today.total_queries && today.total_queries > 0;
 
-            updateStatChange('stat-total-change', comparison.queries, label);
-            updateStatChange('stat-slow-change', comparison.slow, label);
-            updateStatChange('stat-avg-change', comparison.avg_time, label, true);
-            updateStatChange('stat-p95-change', comparison.p95, label, true);
+            setStatValue('stat-total', hasData ? formatNumber(today.total_queries) : null);
+            setStatValue('stat-slow', hasData ? formatNumber(today.slow_queries || 0) : null);
+            setStatValue('stat-avg', hasData ? formatMs(today.avg_time || 0) : null);
+            setStatValue('stat-p95', hasData ? formatMs(today.p95_time || 0) : null);
+
+            // Also update header stats from the overview response
+            setStatValue('header-total', hasData ? formatNumber(today.total_queries) : null);
+            setStatValue('header-slow', hasData ? formatNumber(today.slow_queries || 0) : null);
+            setStatValue('header-avg', hasData ? formatMs(today.avg_time || 0) : null);
+            setStatValue('header-p95', hasData ? formatMs(today.p95_time || 0) : null);
+
+            if (hasData) {
+                updateStatChange('stat-total-change', comparison.queries, label);
+                updateStatChange('stat-slow-change', comparison.slow, label);
+                updateStatChange('stat-avg-change', comparison.avg_time, label, true);
+                updateStatChange('stat-p95-change', comparison.p95, label, true);
+            }
         } catch (e) {
             console.error('Error loading overview:', e);
+            setStatsToFallback();
         }
     }
 
@@ -124,7 +144,9 @@
 
     function updateHeaderStats(stats) {
         if (!stats) return;
-        document.getElementById('header-total').textContent = formatNumber(stats.total_queries || 0);
-        document.getElementById('header-slow').textContent = formatNumber(stats.slow_queries || 0);
-        document.getElementById('header-avg').textContent = formatMs(stats.average_time || 0);
+        const hasData = stats.total_queries && stats.total_queries > 0;
+        setStatValue('header-total', hasData ? formatNumber(stats.total_queries) : null);
+        setStatValue('header-slow', hasData ? formatNumber(stats.slow_queries || 0) : null);
+        setStatValue('header-avg', hasData ? formatMs(stats.average_time || 0) : null);
+        setStatValue('header-p95', hasData && stats.p95_time ? formatMs(stats.p95_time) : null);
     }

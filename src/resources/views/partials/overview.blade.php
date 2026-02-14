@@ -3,7 +3,7 @@
         <div class="stat-card">
             <div class="flex items-start justify-between">
                 <div>
-                    <div class="stat-value" id="stat-total">0</div>
+                    <div class="stat-value" id="stat-total"><span class="stat-spinner"></span></div>
                     <div class="stat-label">Total Queries</div>
                 </div>
                 <div class="p-2 bg-indigo-500/10 rounded-lg">
@@ -20,7 +20,7 @@
         <div class="stat-card">
             <div class="flex items-start justify-between">
                 <div>
-                    <div class="stat-value text-rose-400" id="stat-slow">0</div>
+                    <div class="stat-value text-rose-400" id="stat-slow"><span class="stat-spinner"></span></div>
                     <div class="stat-label">Slow Queries</div>
                 </div>
                 <div class="p-2 bg-rose-500/10 rounded-lg">
@@ -37,7 +37,7 @@
         <div class="stat-card">
             <div class="flex items-start justify-between">
                 <div>
-                    <div class="stat-value" id="stat-avg">0ms</div>
+                    <div class="stat-value" id="stat-avg"><span class="stat-spinner"></span></div>
                     <div class="stat-label">Avg Duration</div>
                 </div>
                 <div class="p-2 bg-emerald-500/10 rounded-lg">
@@ -54,7 +54,7 @@
         <div class="stat-card">
             <div class="flex items-start justify-between">
                 <div>
-                    <div class="stat-value" id="stat-p95">0ms</div>
+                    <div class="stat-value" id="stat-p95"><span class="stat-spinner"></span></div>
                     <div class="stat-label">P95 Duration</div>
                 </div>
                 <div class="p-2 bg-amber-500/10 rounded-lg">

@@ -167,6 +167,29 @@
             50% { opacity: 0.5; }
         }
 
+        /* Stat loading spinner */
+        .stat-spinner {
+            display: inline-block;
+            width: 1em;
+            height: 1em;
+            border: 2px solid rgba(100, 116, 139, 0.3);
+            border-top-color: #818cf8;
+            border-radius: 50%;
+            animation: stat-spin 0.7s linear infinite;
+        }
+        .stat-spinner-sm {
+            display: inline-block;
+            width: 0.85em;
+            height: 0.85em;
+            border: 2px solid rgba(100, 116, 139, 0.3);
+            border-top-color: #818cf8;
+            border-radius: 50%;
+            animation: stat-spin 0.7s linear infinite;
+        }
+        @keyframes stat-spin {
+            to { transform: rotate(360deg); }
+        }
+
         /* Sparkline container */
         .sparkline { height: 30px; }
 

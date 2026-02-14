@@ -16,19 +16,19 @@
             <!-- Quick Stats in Header -->
             <div class="hidden lg:flex items-center gap-6 pl-6 border-l border-slate-800">
                 <div class="text-center">
-                    <div class="text-lg font-bold text-white tabular-nums" id="header-total">-</div>
+                    <div class="text-lg font-bold text-white tabular-nums" id="header-total"><span class="stat-spinner-sm"></span></div>
                     <div class="text-[10px] text-slate-500 uppercase">Queries</div>
                 </div>
                 <div class="text-center">
-                    <div class="text-lg font-bold text-rose-400 tabular-nums" id="header-slow">-</div>
+                    <div class="text-lg font-bold text-rose-400 tabular-nums" id="header-slow"><span class="stat-spinner-sm"></span></div>
                     <div class="text-[10px] text-slate-500 uppercase">Slow</div>
                 </div>
                 <div class="text-center">
-                    <div class="text-lg font-bold text-indigo-400 tabular-nums" id="header-avg">-</div>
+                    <div class="text-lg font-bold text-indigo-400 tabular-nums" id="header-avg"><span class="stat-spinner-sm"></span></div>
                     <div class="text-[10px] text-slate-500 uppercase">Avg</div>
                 </div>
                 <div class="text-center">
-                    <div class="text-lg font-bold text-amber-400 tabular-nums" id="header-p95">-</div>
+                    <div class="text-lg font-bold text-amber-400 tabular-nums" id="header-p95"><span class="stat-spinner-sm"></span></div>
                     <div class="text-[10px] text-slate-500 uppercase">P95</div>
                 </div>
             </div>
