@@ -14,6 +14,7 @@ use GladeHQ\QueryLens\Services\DashboardService;
 use GladeHQ\QueryLens\Services\ExplainService;
 use GladeHQ\QueryLens\Services\IndexAdvisor;
 use GladeHQ\QueryLens\Services\QueryExportService;
+use GladeHQ\QueryLens\Services\RegressionDetector;
 
 class QueryLensController extends Controller
 {
@@ -311,6 +312,18 @@ class QueryLensController extends Controller
                 ? $retentionService->getStorageStats()
                 : null,
         ]);
+    }
+
+    public function regressions(Request $request): JsonResponse
+    {
+        $detector = app(RegressionDetector::class);
+
+        $period = $request->query('period', 'daily');
+        $threshold = (float) $request->query('threshold', config('query-lens.regression.threshold', 0.2));
+
+        $result = $detector->detect($period, $threshold);
+
+        return $this->noCacheResponse(response()->json($result));
     }
 
     public function indexSuggestions(Request $request): JsonResponse

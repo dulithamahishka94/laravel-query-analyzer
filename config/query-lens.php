@@ -191,4 +191,19 @@ return [
         'enable_top_queries' => true,
         'enable_alerts_panel' => true,
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Regression Detection
+    |--------------------------------------------------------------------------
+    |
+    | Configure regression detection thresholds and webhook notifications.
+    | Use with the query-lens:check-regression artisan command for CI/CD.
+    |
+    */
+    'regression' => [
+        'webhook_url' => env('QUERY_LENS_REGRESSION_WEBHOOK_URL'),
+        'threshold' => env('QUERY_LENS_REGRESSION_THRESHOLD', 0.2),
+        'headers' => [],
+    ],
 ];

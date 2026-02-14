@@ -7,6 +7,7 @@ use Illuminate\Support\ServiceProvider;
 use GladeHQ\QueryLens\Commands\AggregateCommand;
 use GladeHQ\QueryLens\Commands\AnalyzeQueriesCommand;
 use GladeHQ\QueryLens\Commands\PruneCommand;
+use GladeHQ\QueryLens\Commands\CheckRegressionCommand;
 use GladeHQ\QueryLens\Commands\SuggestIndexesCommand;
 use GladeHQ\QueryLens\Contracts\QueryStorage;
 use GladeHQ\QueryLens\Http\Controllers\AlertController;
@@ -17,6 +18,8 @@ use GladeHQ\QueryLens\Services\AggregationService;
 use GladeHQ\QueryLens\Services\AlertService;
 use GladeHQ\QueryLens\Services\DataRetentionService;
 use GladeHQ\QueryLens\Services\IndexAdvisor;
+use GladeHQ\QueryLens\Services\RegressionDetector;
+use GladeHQ\QueryLens\Services\WebhookNotifier;
 use GladeHQ\QueryLens\Filament\QueryLensDataService;
 use GladeHQ\QueryLens\Filament\QueryLensPlugin;
 use GladeHQ\QueryLens\Storage\CacheQueryStorage;
@@ -85,6 +88,12 @@ class QueryLensServiceProvider extends ServiceProvider
             return $advisor;
         });
 
+        $this->app->singleton(RegressionDetector::class, function ($app) {
+            return new RegressionDetector($app->make(QueryStorage::class));
+        });
+
+        $this->app->singleton(WebhookNotifier::class);
+
         // Register Filament data service (usable with or without Filament panel)
         $this->app->singleton(QueryLensDataService::class, function ($app) {
             return new QueryLensDataService(
@@ -116,6 +125,7 @@ class QueryLensServiceProvider extends ServiceProvider
                 AggregateCommand::class,
                 PruneCommand::class,
                 SuggestIndexesCommand::class,
+                CheckRegressionCommand::class,
             ]);
         }
 
@@ -172,6 +182,10 @@ class QueryLensServiceProvider extends ServiceProvider
                     // Index suggestions
                     Route::get('index-suggestions', [QueryLensController::class, 'indexSuggestions'])
                         ->name('query-lens.api.v2.index-suggestions');
+
+                    // Regression detection
+                    Route::get('regressions', [QueryLensController::class, 'regressions'])
+                        ->name('query-lens.api.v2.regressions');
 
                     // Alert management endpoints
                     Route::get('alerts', [AlertController::class, 'index'])->name('query-lens.api.v2.alerts.index');
