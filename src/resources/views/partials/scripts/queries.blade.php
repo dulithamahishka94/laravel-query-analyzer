@@ -7,16 +7,26 @@
 
         try {
             const res = await fetch(`/query-lens/api/v2/top-queries?type=${type}&period=${period}&limit=5`);
+
+            if (!res.ok) {
+                throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+            }
+
             const data = await res.json();
-            renderTopQueries(data.queries, containerId);
+            renderTopQueries(data.queries || [], containerId);
         } catch (e) {
             console.error('Error loading top queries:', e);
+            const container = document.getElementById(containerId);
+            if (container) {
+                container.innerHTML = '<div class="p-4 text-center text-slate-500 text-sm">Failed to load data</div>';
+            }
         }
     }
 
     function renderTopQueries(queries, containerId) {
         const container = document.getElementById(containerId);
-        if (!queries.length) {
+        if (!container) return;
+        if (!Array.isArray(queries) || !queries.length) {
             container.innerHTML = '<div class="p-4 text-center text-slate-500 text-sm">No data available</div>';
             return;
         }
@@ -76,9 +86,12 @@
                 GET: 'text-emerald-400 bg-emerald-500/10',
                 POST: 'text-blue-400 bg-blue-500/10',
                 PUT: 'text-amber-400 bg-amber-500/10',
+                PATCH: 'text-amber-400 bg-amber-500/10',
                 DELETE: 'text-rose-400 bg-rose-500/10'
             };
             const methodClass = methodColors[req.method] || 'text-slate-400 bg-slate-500/10';
+            const displayPath = req.path || '/';
+            const routeName = req.route_name || '';
 
             return `
                 <div onclick="selectRequest('${req.request_id}')"
@@ -87,7 +100,8 @@
                         <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold ${methodClass}">${req.method}</span>
                         <span class="text-[10px] text-slate-500">${formatTime(req.timestamp)}</span>
                     </div>
-                    <div class="font-mono text-xs text-slate-300 truncate mb-1">${req.path || '/'}</div>
+                    ${routeName ? `<div class="text-[10px] text-indigo-400/70 truncate mb-0.5" title="${routeName}">${routeName}</div>` : ''}
+                    <div class="font-mono text-xs text-slate-300 truncate mb-1" title="${displayPath}">/${displayPath}</div>
                     <div class="flex items-center gap-3 text-[10px]">
                         <span class="text-slate-500">${req.query_count} queries</span>
                         <span class="text-slate-500">${(req.avg_time * 1000).toFixed(1)}ms avg</span>

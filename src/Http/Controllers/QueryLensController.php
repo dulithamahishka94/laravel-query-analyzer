@@ -100,16 +100,39 @@ class QueryLensController extends Controller
 
     public function requests(Request $request): JsonResponse
     {
+        // Pre-load request metadata (method, path) from the storage layer.
+        // The database driver stores these on the AnalyzedRequest model, but
+        // toApiArray() on AnalyzedQuery does not include them -- so we look
+        // them up once and index by request_id for O(1) enrichment below.
+        $requestMeta = collect($this->storage->getRequests(1000))
+            ->keyBy('request_id');
+
         $requests = $this->analyzer->getQueries()
             ->groupBy('request_id')
-            ->map(function ($group) use ($request) {
+            ->map(function ($group) use ($request, $requestMeta) {
                 $first = $group->first();
                 $filtered = $this->dashboardService->applyFilters($group, $request);
+                $requestId = $first['request_id'];
+
+                // Resolve method and path: prefer the query-level keys (cache driver
+                // stores these inline), then fall back to AnalyzedRequest metadata
+                // (database driver), and finally to sensible defaults.
+                $meta = $requestMeta->get($requestId, []);
+                $method = $first['request_method']
+                    ?? $meta['method']
+                    ?? 'UNKNOWN';
+                $path = $first['request_path']
+                    ?? $meta['path']
+                    ?? '/';
+                $routeName = $first['route_name']
+                    ?? $meta['route_name']
+                    ?? null;
 
                 return [
-                    'request_id' => $first['request_id'],
-                    'method' => $first['request_method'] ?? 'UNKNOWN',
-                    'path' => $first['request_path'] ?? 'terminal',
+                    'request_id' => $requestId,
+                    'method' => $method,
+                    'path' => $path,
+                    'route_name' => $routeName,
                     'timestamp' => $first['timestamp'],
                     'query_count' => $filtered->count(),
                     'slow_count' => $filtered->where('analysis.performance.is_slow', true)->count(),

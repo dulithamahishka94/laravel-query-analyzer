@@ -133,12 +133,16 @@ class QueryAnalyzer
         $this->queryStructures[$structureHash] = ($this->queryStructures[$structureHash] ?? 0) + 1;
         $isPotentialNPlusOne = $this->queryStructures[$structureHash] > 1;
 
+        $currentRequest = request();
+        $route = $currentRequest->route();
+
         $query = [
             'id' => (string) Str::orderedUuid(),
             'request_id' => $this->requestId ?? 'cli-' . getmypid(),
             'transaction_id' => $this->currentTransactionId,
-            'request_path' => request()->path(),
-            'request_method' => request()->method(),
+            'request_path' => $currentRequest->path(),
+            'request_method' => $currentRequest->method(),
+            'route_name' => $route?->getName(),
             'sql' => $sql,
             'bindings' => $bindings,
             'time' => $time,
@@ -162,11 +166,15 @@ class QueryAnalyzer
             return;
         }
 
+        $currentRequest = request();
+        $route = $currentRequest->route();
+
         $event = [
             'id' => (string) Str::orderedUuid(),
             'request_id' => $this->requestId ?? 'cli-' . getmypid(),
-            'request_path' => request()->path(),
-            'request_method' => request()->method(),
+            'request_path' => $currentRequest->path(),
+            'request_method' => $currentRequest->method(),
+            'route_name' => $route?->getName(),
             'sql' => "CACHE " . strtoupper($type) . ": " . $key, // Pseudo-SQL for display
             'bindings' => ['key' => $key, 'tags' => $tags],
             'time' => 0.0001, // Minimal time for visualization

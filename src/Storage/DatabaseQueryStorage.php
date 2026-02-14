@@ -176,6 +176,7 @@ class DatabaseQueryStorage implements QueryStorage
                     'request_id' => $request->id,
                     'method' => $request->method,
                     'path' => $request->path,
+                    'route_name' => $request->route_name,
                     'timestamp' => $request->created_at?->timestamp ?? time(),
                     'query_count' => $request->query_count,
                     'slow_count' => $request->slow_count,
@@ -263,13 +264,21 @@ class DatabaseQueryStorage implements QueryStorage
 
     protected function ensureRequestExists(string $requestId, array $query): void
     {
-        if (!AnalyzedRequest::find($requestId)) {
+        $existing = AnalyzedRequest::find($requestId);
+
+        if (!$existing) {
             AnalyzedRequest::create([
                 'id' => $requestId,
                 'method' => $query['request_method'] ?? 'GET',
                 'path' => $query['request_path'] ?? '/',
+                'route_name' => $query['route_name'] ?? null,
                 'created_at' => now(),
             ]);
+        } elseif (!$existing->route_name && !empty($query['route_name'])) {
+            // The first query in a request may fire before route resolution
+            // completes (e.g., during middleware). Update the route_name once
+            // it becomes available from a later query in the same request.
+            $existing->update(['route_name' => $query['route_name']]);
         }
     }
 
