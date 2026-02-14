@@ -20,6 +20,14 @@ class AlertTest extends TestCase
     {
         $app['config']->set('query-lens.web_ui.enabled', true);
         $app['config']->set('app.key', 'base64:'.base64_encode(random_bytes(32)));
+
+        // Configure SQLite for testing
+        $app['config']->set('database.default', 'sqlite');
+        $app['config']->set('database.connections.sqlite', [
+            'driver' => 'sqlite',
+            'database' => ':memory:',
+            'prefix' => '',
+        ]);
     }
 
     protected function setUp(): void
