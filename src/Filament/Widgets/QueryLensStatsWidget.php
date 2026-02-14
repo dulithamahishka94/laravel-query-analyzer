@@ -4,24 +4,73 @@ declare(strict_types=1);
 
 namespace GladeHQ\QueryLens\Filament\Widgets;
 
+use GladeHQ\QueryLens\Filament\Concerns\BaseStatsWidgetResolver;
 use GladeHQ\QueryLens\Filament\QueryLensDataService;
 
 /**
- * Stats widget configuration for the Filament plugin.
+ * Stats overview widget for the Filament dashboard.
  *
- * Assembles stats data for display. When Filament is installed, this data
- * can be used with Filament\Widgets\StatsOverviewWidget\Stat cards.
- * Without Filament, it provides structured data for any dashboard.
+ * When Filament is installed, this extends StatsOverviewWidget and
+ * returns Filament Stat objects via getStats().
+ * When Filament is absent, it provides structured stat data arrays.
  */
-class QueryLensStatsWidget
+class QueryLensStatsWidget extends BaseStatsWidgetResolver
 {
     protected static int $sort = 10;
     protected static string $pollingInterval = '30s';
 
-    public function getStats(QueryLensDataService $dataService): array
+    /**
+     * Get stats for the widget.
+     *
+     * When Filament is installed, this returns Filament Stat objects.
+     * Without Filament, it returns structured arrays.
+     */
+    public function getStats(): array
     {
+        $dataService = $this->resolveDataService();
         $stats = $dataService->getStatsForWidget();
 
+        if (class_exists(\Filament\Widgets\StatsOverviewWidget\Stat::class)) {
+            return $this->buildFilamentStats($stats);
+        }
+
+        return $this->buildArrayStats($stats);
+    }
+
+    /**
+     * Build Filament Stat objects when Filament is available.
+     */
+    protected function buildFilamentStats(array $stats): array
+    {
+        $statClass = \Filament\Widgets\StatsOverviewWidget\Stat::class;
+
+        return [
+            $statClass::make('Total Queries (24h)', number_format($stats['total_queries']))
+                ->description($this->formatChange($stats['query_change']))
+                ->descriptionIcon($this->getDirectionIcon($stats['query_change']))
+                ->color($this->getChangeColor($stats['query_change'])),
+
+            $statClass::make('Slow Queries', number_format($stats['slow_queries']))
+                ->description($this->formatChange($stats['slow_change']))
+                ->descriptionIcon($this->getDirectionIcon($stats['slow_change']))
+                ->color($this->getSlowColor($stats['slow_change'])),
+
+            $statClass::make('Avg Response Time', $stats['avg_time'] . 'ms')
+                ->description($this->formatChange($stats['avg_time_change']))
+                ->descriptionIcon($this->getDirectionIcon($stats['avg_time_change']))
+                ->color($this->getTimeColor($stats['avg_time_change'])),
+
+            $statClass::make('P95 Latency', $stats['p95_time'] . 'ms')
+                ->description('95th percentile')
+                ->color('gray'),
+        ];
+    }
+
+    /**
+     * Build structured array stats for non-Filament usage.
+     */
+    public function buildArrayStats(array $stats): array
+    {
         return [
             [
                 'label' => 'Total Queries (24h)',
@@ -47,7 +96,7 @@ class QueryLensStatsWidget
             [
                 'label' => 'P95 Latency',
                 'value' => $stats['p95_time'] . 'ms',
-                'change' => 'N/A',
+                'change' => '95th percentile',
                 'change_direction' => 'neutral',
                 'color' => 'gray',
             ],
@@ -64,6 +113,7 @@ class QueryLensStatsWidget
         }
 
         $arrow = $direction === 'up' ? '+' : '-';
+
         return "{$arrow}{$value}% vs previous period";
     }
 
@@ -94,13 +144,17 @@ class QueryLensStatsWidget
         };
     }
 
-    public static function getSort(): int
+    protected function getDirectionIcon(array $change): string
     {
-        return static::$sort;
+        return match ($change['direction'] ?? 'neutral') {
+            'up' => 'heroicon-m-arrow-trending-up',
+            'down' => 'heroicon-m-arrow-trending-down',
+            default => 'heroicon-m-minus',
+        };
     }
 
-    public static function getPollingInterval(): string
+    protected function resolveDataService(): QueryLensDataService
     {
-        return static::$pollingInterval;
+        return app(QueryLensDataService::class);
     }
 }

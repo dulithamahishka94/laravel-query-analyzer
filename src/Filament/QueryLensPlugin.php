@@ -4,22 +4,29 @@ declare(strict_types=1);
 
 namespace GladeHQ\QueryLens\Filament;
 
+use GladeHQ\QueryLens\Filament\Pages\QueryLensAlerts;
+use GladeHQ\QueryLens\Filament\Pages\QueryLensDashboard;
+use GladeHQ\QueryLens\Filament\Pages\QueryLensTrends;
+use GladeHQ\QueryLens\Filament\Widgets\QueryLensStatsWidget;
+use GladeHQ\QueryLens\Filament\Widgets\QueryPerformanceChart;
+use GladeHQ\QueryLens\Filament\Widgets\QueryVolumeChart;
+
 /**
  * Filament Panel Plugin for QueryLens.
  *
- * When Filament is installed, this class is used via:
- *   ->plugin(QueryLensPlugin::make())
+ * Implements Filament\Contracts\Plugin via duck typing so the class can be loaded
+ * safely when Filament is not installed. Filament's plugin resolution checks for
+ * getId(), register(), and boot() methods without requiring the interface.
  *
- * The register() and boot() methods match the Filament\Contracts\Plugin interface
- * without formally implementing it, so the class can be loaded even when
- * Filament is not present. Filament's plugin resolution uses duck typing
- * on the getId/register/boot methods.
+ * Usage:
+ *   $panel->plugin(QueryLensPlugin::make())
  */
 class QueryLensPlugin
 {
     protected bool $enableDashboard = true;
     protected bool $enableAlerts = true;
     protected bool $enableTrends = true;
+    protected ?string $navigationGroup = 'Query Lens';
 
     public static function make(): static
     {
@@ -49,6 +56,12 @@ class QueryLensPlugin
         return $this;
     }
 
+    public function navigationGroup(?string $group): static
+    {
+        $this->navigationGroup = $group;
+        return $this;
+    }
+
     public function isDashboardEnabled(): bool
     {
         return $this->enableDashboard;
@@ -64,10 +77,15 @@ class QueryLensPlugin
         return $this->enableTrends;
     }
 
+    public function getNavigationGroup(): ?string
+    {
+        return $this->navigationGroup;
+    }
+
     /**
      * Register plugin pages and widgets with the Filament panel.
      *
-     * @param mixed $panel Filament\Panel instance
+     * @param mixed $panel Filament\Panel instance (typed as mixed for non-Filament safety)
      */
     public function register($panel): void
     {
@@ -75,18 +93,19 @@ class QueryLensPlugin
         $widgets = [];
 
         if ($this->enableDashboard) {
-            $pages[] = Pages\QueryLensDashboard::class;
+            $pages[] = QueryLensDashboard::class;
+            $widgets[] = QueryLensStatsWidget::class;
         }
 
         if ($this->enableAlerts) {
-            $pages[] = Pages\QueryLensAlerts::class;
+            $pages[] = QueryLensAlerts::class;
         }
 
         if ($this->enableTrends) {
-            $pages[] = Pages\QueryLensTrends::class;
+            $pages[] = QueryLensTrends::class;
+            $widgets[] = QueryPerformanceChart::class;
+            $widgets[] = QueryVolumeChart::class;
         }
-
-        $widgets[] = Widgets\QueryLensStatsWidget::class;
 
         $panel->pages($pages)->widgets($widgets);
     }
@@ -103,6 +122,6 @@ class QueryLensPlugin
 
     public static function isFilamentInstalled(): bool
     {
-        return interface_exists(\Filament\Contracts\Plugin::class);
+        return class_exists(\Filament\Pages\Page::class);
     }
 }
