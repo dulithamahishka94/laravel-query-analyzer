@@ -101,6 +101,11 @@ class QueryAnalyzer
             }
         }
 
+        // 1.2 Check configurable excluded patterns
+        if ($this->matchesExcludedPattern($sql)) {
+            return;
+        }
+
         // 2. Ignore session queries if we are currently on the analyzer dashboard (heuristic)
         // This prevents the dashboard "Refresh/Reset" from logging its own session lookups
         if (str_contains($sql, 'sessions') && str_contains(request()->getPathInfo(), 'query-lens')) {
@@ -172,6 +177,19 @@ class QueryAnalyzer
         ];
 
         $this->storage->store($event);
+    }
+
+    protected function matchesExcludedPattern(string $sql): bool
+    {
+        $patterns = $this->config['excluded_patterns'] ?? [];
+
+        foreach ($patterns as $pattern) {
+            if (stripos($sql, $pattern) !== false) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     protected function analyzeWithNPlusOne(string $sql, array $bindings, float $time, bool $isNPlusOne): array
