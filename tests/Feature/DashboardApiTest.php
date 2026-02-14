@@ -69,14 +69,12 @@ class DashboardApiTest extends TestCase
 
     public function test_top_queries_endpoint_returns_200()
     {
-        if (\Illuminate\Support\Facades\DB::connection()->getDriverName() === 'sqlite') {
-            $this->markTestSkipped('JSON_LENGTH not supported in SQLite');
-        }
-
         $response = $this->get('/query-lens/api/v2/top-queries?type=slowest');
         $response->assertStatus(200)
                  ->assertJsonStructure([
-                     'queries'
+                     'queries',
+                     'type',
+                     'period',
                  ]);
     }
 

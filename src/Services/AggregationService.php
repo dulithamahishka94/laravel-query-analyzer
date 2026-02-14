@@ -128,7 +128,7 @@ class AggregationService
 
         $orderBy = match ($type) {
             'slowest' => 'avg_time DESC',
-            'most_frequent' => 'count DESC',
+            'most_frequent' => 'query_count DESC',
             'most_issues' => 'issue_count DESC',
             default => 'total_time DESC',
         };
@@ -140,19 +140,23 @@ class AggregationService
         // Build query based on database driver
         $driver = DB::connection($connection)->getDriverName();
 
+        // Quote reserved-word column names to avoid MySQL syntax errors.
+        // 'sql', 'time', 'count', and 'analysis' are reserved words in MySQL.
+        $q = $driver === 'mysql' ? '`' : '"';
+
         if ($driver === 'mysql') {
-            $issueCountExpr = "SUM(CASE WHEN JSON_LENGTH(analysis, '$.issues') > 0 THEN 1 ELSE 0 END)";
+            $issueCountExpr = "SUM(CASE WHEN JSON_LENGTH({$q}analysis{$q}, '$.issues') > 0 THEN 1 ELSE 0 END)";
         } elseif ($driver === 'pgsql') {
-            $issueCountExpr = "SUM(CASE WHEN jsonb_array_length(analysis->'issues') > 0 THEN 1 ELSE 0 END)";
+            $issueCountExpr = "SUM(CASE WHEN jsonb_array_length({$q}analysis{$q}->'issues') > 0 THEN 1 ELSE 0 END)";
         } else {
             // SQLite fallback
-            $issueCountExpr = "SUM(CASE WHEN analysis LIKE '%\"issues\":[%' AND analysis NOT LIKE '%\"issues\":[]%' THEN 1 ELSE 0 END)";
+            $issueCountExpr = "SUM(CASE WHEN {$q}analysis{$q} LIKE '%\"issues\":[%' AND {$q}analysis{$q} NOT LIKE '%\"issues\":[]%' THEN 1 ELSE 0 END)";
         }
 
         $results = DB::connection($connection)
             ->table($table)
-            ->selectRaw("sql_hash, MIN(sql) as sql_sample, COUNT(*) as count,
-                         AVG(time) as avg_time, MAX(time) as max_time, SUM(time) as total_time,
+            ->selectRaw("{$q}sql_hash{$q}, MIN({$q}sql{$q}) as sql_sample, COUNT(*) as query_count,
+                         AVG({$q}time{$q}) as avg_time, MAX({$q}time{$q}) as max_time, SUM({$q}time{$q}) as total_time,
                          {$issueCountExpr} as issue_count")
             ->whereBetween('created_at', [$start, $end])
             ->groupBy('sql_hash')
@@ -169,7 +173,7 @@ class AggregationService
                 'period_start' => $start,
                 'sql_hash' => $row->sql_hash,
                 'sql_sample' => $row->sql_sample,
-                'count' => $row->count,
+                'count' => $row->query_count,
                 'avg_time' => $row->avg_time,
                 'max_time' => $row->max_time,
                 'total_time' => $row->total_time,

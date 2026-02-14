@@ -306,15 +306,32 @@ class DatabaseQueryStorage implements QueryStorage
             default => now()->subDay(),
         };
 
+        $connection = config('query-lens.storage.connection');
+        $driver = \Illuminate\Support\Facades\DB::connection($connection)->getDriverName();
+
+        // Build driver-aware issue count expression
+        if ($driver === 'mysql') {
+            $issueCountExpr = "SUM(CASE WHEN JSON_LENGTH(`analysis`, '$.issues') > 0 THEN 1 ELSE 0 END)";
+        } elseif ($driver === 'pgsql') {
+            $issueCountExpr = "SUM(CASE WHEN jsonb_array_length(\"analysis\"->'issues') > 0 THEN 1 ELSE 0 END)";
+        } else {
+            // SQLite fallback
+            $issueCountExpr = "SUM(CASE WHEN \"analysis\" LIKE '%\"issues\":[%' AND \"analysis\" NOT LIKE '%\"issues\":[]%' THEN 1 ELSE 0 END)";
+        }
+
+        // Quote reserved-word column names to avoid MySQL syntax errors.
+        // 'sql', 'time', 'count', and 'analysis' are reserved words in MySQL.
+        $q = $driver === 'mysql' ? '`' : '"';
+
         $query = AnalyzedQuery::where('created_at', '>=', $cutoff)
-            ->selectRaw('sql_hash, MIN(sql) as sql_sample, COUNT(*) as count,
-                         AVG(time) as avg_time, MAX(time) as max_time, SUM(time) as total_time,
-                         SUM(CASE WHEN JSON_LENGTH(analysis, "$.issues") > 0 THEN 1 ELSE 0 END) as issue_count')
+            ->selectRaw("{$q}sql_hash{$q}, MIN({$q}sql{$q}) as sql_sample, COUNT(*) as query_count,
+                         AVG({$q}time{$q}) as avg_time, MAX({$q}time{$q}) as max_time, SUM({$q}time{$q}) as total_time,
+                         {$issueCountExpr} as issue_count")
             ->groupBy('sql_hash');
 
         $orderBy = match ($type) {
             'slowest' => 'avg_time DESC',
-            'most_frequent' => 'count DESC',
+            'most_frequent' => 'query_count DESC',
             'most_issues' => 'issue_count DESC',
             default => 'total_time DESC',
         };
@@ -326,7 +343,7 @@ class DatabaseQueryStorage implements QueryStorage
                 return [
                     'sql_hash' => $row->sql_hash,
                     'sql_sample' => $row->sql_sample,
-                    'count' => $row->count,
+                    'count' => (int) $row->query_count,
                     'avg_time' => (float) $row->avg_time,
                     'max_time' => (float) $row->max_time,
                     'total_time' => (float) $row->total_time,
