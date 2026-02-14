@@ -126,10 +126,18 @@ class QueryAnalyzer
             return;
         }
 
-        // 2. Ignore session queries if we are currently on the analyzer dashboard (heuristic)
-        // This prevents the dashboard "Refresh/Reset" from logging its own session lookups
-        if (str_contains($sql, 'sessions') && str_contains(request()->getPathInfo(), 'query-lens')) {
-            return;
+        // 2. Ignore ALL queries when we are currently on a Query Lens route.
+        // Recording is disabled at the container-resolution level (see
+        // QueryLensServiceProvider) and again by AnalyzeQueryMiddleware, but
+        // this serves as a final safety net in case state was corrupted (e.g.
+        // by a third-party package re-enabling recording during the request).
+        try {
+            $path = request()->getPathInfo();
+            if (str_contains($path, '/query-lens')) {
+                return;
+            }
+        } catch (\Throwable) {
+            // request() may throw outside HTTP context; ignore gracefully.
         }
 
         $minTime = $this->config['analysis']['min_execution_time'] ?? 0.001;

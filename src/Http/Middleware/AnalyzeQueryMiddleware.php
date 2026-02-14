@@ -22,7 +22,15 @@ class AnalyzeQueryMiddleware
 
     public function handle(Request $request, Closure $next)
     {
-        if ($request->is('query-lens*')) {
+        // Detect Query Lens routes: both standalone (/query-lens/*) and
+        // Filament panel pages (/<panel>/query-lens*). The container-level
+        // check in QueryLensServiceProvider already disables recording before
+        // session middleware runs, but this serves as the definitive middleware
+        // layer that also controls the terminate() finalization logic.
+        $isQueryLensRoute = $request->is('query-lens*')
+            || str_contains($request->getPathInfo(), '/query-lens');
+
+        if ($isQueryLensRoute) {
             $this->analyzer->disableRecording();
             $this->wasDisabledForDashboard = true;
         }

@@ -384,4 +384,134 @@ class SelfObservationTest extends TestCase
 
         $this->assertCount(0, $storage->getAllQueries());
     }
+
+    // ---------------------------------------------------------------
+    // Layer 3: Route-path safety net in recordQuery()
+    // ---------------------------------------------------------------
+
+    public function test_session_queries_excluded_on_query_lens_routes(): void
+    {
+        // Simulate a request to the Query Lens dashboard
+        $request = \Illuminate\Http\Request::create('/query-lens/api/requests', 'GET');
+        $this->app->instance('request', $request);
+
+        [$analyzer, $storage] = $this->makeAnalyzer();
+
+        // These are the exact queries that were leaking through:
+        // Session INSERT and SELECT during dashboard access
+        $analyzer->recordQuery(
+            'insert into `sessions` (`id`, `user_id`, `ip_address`, `user_agent`, `payload`, `last_activity`) values (?, ?, ?, ?, ?, ?)',
+            ['abc123', null, '127.0.0.1', 'Mozilla', 'payload', time()],
+            0.05
+        );
+
+        $analyzer->recordQuery(
+            'select * from `sessions` where `id` = ? limit 1',
+            ['abc123'],
+            0.05
+        );
+
+        // Neither should be recorded
+        $this->assertCount(0, $storage->getAllQueries());
+    }
+
+    public function test_any_query_excluded_on_query_lens_routes(): void
+    {
+        // Even non-session queries should be excluded during dashboard requests
+        $request = \Illuminate\Http\Request::create('/query-lens', 'GET');
+        $this->app->instance('request', $request);
+
+        [$analyzer, $storage] = $this->makeAnalyzer();
+
+        $analyzer->recordQuery('SELECT * FROM users WHERE id = ?', [1], 0.05);
+        $analyzer->recordQuery('UPDATE settings SET value = ? WHERE key = ?', ['dark', 'theme'], 0.05);
+
+        $this->assertCount(0, $storage->getAllQueries());
+    }
+
+    public function test_queries_excluded_on_filament_panel_query_lens_routes(): void
+    {
+        // Filament panel pages use paths like /admin/query-lens
+        $request = \Illuminate\Http\Request::create('/admin/query-lens', 'GET');
+        $this->app->instance('request', $request);
+
+        [$analyzer, $storage] = $this->makeAnalyzer();
+
+        $analyzer->recordQuery(
+            'select * from `sessions` where `id` = ? limit 1',
+            ['abc123'],
+            0.05
+        );
+
+        $this->assertCount(0, $storage->getAllQueries());
+    }
+
+    public function test_queries_not_excluded_on_non_query_lens_routes(): void
+    {
+        $request = \Illuminate\Http\Request::create('/admin/users', 'GET');
+        $this->app->instance('request', $request);
+
+        [$analyzer, $storage] = $this->makeAnalyzer();
+
+        $analyzer->recordQuery('SELECT * FROM users WHERE id = ?', [1], 0.05);
+
+        $this->assertCount(1, $storage->getAllQueries());
+    }
+
+    // ---------------------------------------------------------------
+    // Layer 0: Early container-level detection
+    // ---------------------------------------------------------------
+
+    public function test_service_provider_is_query_lens_request_detects_standalone_routes(): void
+    {
+        // Test the static detection method directly via reflection.
+        // In production, this runs inside the scoped binding when !runningInConsole().
+        $request = \Illuminate\Http\Request::create('/query-lens/api/stats', 'GET');
+        $this->app->instance('request', $request);
+
+        $method = new \ReflectionMethod(\GladeHQ\QueryLens\QueryLensServiceProvider::class, 'isQueryLensRequest');
+        $method->setAccessible(true);
+
+        $this->assertTrue($method->invoke(null, $this->app));
+    }
+
+    public function test_service_provider_is_query_lens_request_detects_filament_panel_routes(): void
+    {
+        $request = \Illuminate\Http\Request::create('/admin/query-lens', 'GET');
+        $this->app->instance('request', $request);
+
+        $method = new \ReflectionMethod(\GladeHQ\QueryLens\QueryLensServiceProvider::class, 'isQueryLensRequest');
+        $method->setAccessible(true);
+
+        $this->assertTrue($method->invoke(null, $this->app));
+    }
+
+    public function test_service_provider_is_query_lens_request_ignores_normal_routes(): void
+    {
+        $request = \Illuminate\Http\Request::create('/api/users', 'GET');
+        $this->app->instance('request', $request);
+
+        $method = new \ReflectionMethod(\GladeHQ\QueryLens\QueryLensServiceProvider::class, 'isQueryLensRequest');
+        $method->setAccessible(true);
+
+        $this->assertFalse($method->invoke(null, $this->app));
+    }
+
+    public function test_middleware_disables_recording_for_filament_panel_routes(): void
+    {
+        $analyzerMock = \Mockery::mock(QueryAnalyzer::class);
+        $analyzerMock->shouldReceive('getRequestId')->andReturn('test-id');
+        $analyzerMock->shouldReceive('disableRecording')->once();
+
+        $storageMock = \Mockery::mock(\GladeHQ\QueryLens\Contracts\QueryStorage::class);
+
+        $middleware = new \GladeHQ\QueryLens\Http\Middleware\AnalyzeQueryMiddleware($analyzerMock, $storageMock);
+
+        // Filament panel route: /admin/query-lens
+        $request = \Illuminate\Http\Request::create('/admin/query-lens', 'GET');
+
+        $middleware->handle($request, function ($req) {
+            return response('OK');
+        });
+    }
 }

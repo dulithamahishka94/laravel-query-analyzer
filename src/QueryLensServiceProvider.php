@@ -88,6 +88,16 @@ class QueryLensServiceProvider extends ServiceProvider
             // (e.g., Service Provider boot queries) that run before Middleware.
             if (!$app->runningInConsole()) {
                 $analyzer->setRequestId((string) \Illuminate\Support\Str::orderedUuid());
+
+                // CRITICAL: Disable recording immediately if this request targets
+                // Query Lens routes. This MUST happen here (at resolution time)
+                // because session/auth middleware fire QueryExecuted events BEFORE
+                // AnalyzeQueryMiddleware::handle() runs. Without this early check,
+                // session queries, CSRF token lookups, and other framework-level
+                // side-effect queries get recorded when viewing the dashboard.
+                if (static::isQueryLensRequest($app)) {
+                    $analyzer->disableRecording();
+                }
             }
 
             return $analyzer;
@@ -168,6 +178,47 @@ class QueryLensServiceProvider extends ServiceProvider
             if ($router->hasMiddlewareGroup('api')) {
                 $router->pushMiddlewareToGroup('api', \GladeHQ\QueryLens\Http\Middleware\AnalyzeQueryMiddleware::class);
             }
+        }
+    }
+
+    /**
+     * Determine if the current HTTP request targets a Query Lens route.
+     *
+     * This is called very early -- during service container resolution -- before
+     * the router has matched the request. We therefore inspect the raw request
+     * URI path rather than relying on route names or matched route objects.
+     *
+     * The check covers both the standalone web UI routes (/query-lens/...)
+     * and Filament panel pages (which use the "query-lens" slug).
+     */
+    protected static function isQueryLensRequest($app): bool
+    {
+        try {
+            $request = $app['request'] ?? null;
+
+            if (!$request) {
+                return false;
+            }
+
+            $path = $request->getPathInfo();
+
+            // Standalone web UI: /query-lens or /query-lens/*
+            if (str_starts_with($path, '/query-lens')) {
+                return true;
+            }
+
+            // Filament panel pages typically live under /<panel-path>/query-lens*
+            // e.g. /admin/query-lens, /admin/query-lens-alerts, /admin/query-lens-trends
+            if (str_contains($path, '/query-lens')) {
+                return true;
+            }
+
+            return false;
+        } catch (\Throwable) {
+            // If the request object is not yet available (e.g. during console
+            // bootstrapping or testing edge cases), fail open -- recording will
+            // be enabled, which is the safe default for non-dashboard contexts.
+            return false;
         }
     }
 
