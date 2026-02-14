@@ -94,6 +94,32 @@ interface QueryStorage
     public function getQueriesSince(float $since, int $limit = 100): array;
 
     /**
+     * Search historical queries with filters and pagination.
+     *
+     * Supported filters:
+     *   - sql_like: LIKE search on normalized SQL
+     *   - table_name: filter by table name
+     *   - time_from / time_to: date range (Carbon-parseable strings)
+     *   - min_duration / max_duration: execution time range (float seconds)
+     *   - type: query type (SELECT, INSERT, UPDATE, DELETE)
+     *   - is_slow: boolean filter
+     *   - page / per_page: pagination
+     *
+     * @param array $filters
+     * @return array{data: array, total: int, page: int, per_page: int}
+     */
+    public function search(array $filters = []): array;
+
+    /**
+     * Finalize request aggregation at end of request lifecycle.
+     * Called once from terminate middleware instead of per-query.
+     *
+     * @param string $requestId
+     * @return void
+     */
+    public function finalizeRequest(string $requestId): void;
+
+    /**
      * Check if storage driver supports persistence.
      *
      * @return bool

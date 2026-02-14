@@ -7,14 +7,23 @@ use Illuminate\Support\ServiceProvider;
 use GladeHQ\QueryLens\Commands\AggregateCommand;
 use GladeHQ\QueryLens\Commands\AnalyzeQueriesCommand;
 use GladeHQ\QueryLens\Commands\PruneCommand;
+use GladeHQ\QueryLens\Commands\CheckRegressionCommand;
+use GladeHQ\QueryLens\Commands\SuggestIndexesCommand;
 use GladeHQ\QueryLens\Contracts\QueryStorage;
 use GladeHQ\QueryLens\Http\Controllers\AlertController;
 use GladeHQ\QueryLens\Http\Controllers\QueryLensController;
 use GladeHQ\QueryLens\Http\Middleware\QueryLensMiddleware;
 use GladeHQ\QueryLens\Listeners\QueryListener;
+use GladeHQ\QueryLens\Listeners\TransactionListener;
 use GladeHQ\QueryLens\Services\AggregationService;
 use GladeHQ\QueryLens\Services\AlertService;
 use GladeHQ\QueryLens\Services\DataRetentionService;
+use GladeHQ\QueryLens\Services\IndexAdvisor;
+use GladeHQ\QueryLens\Services\AIQueryOptimizer;
+use GladeHQ\QueryLens\Services\RegressionDetector;
+use GladeHQ\QueryLens\Services\WebhookNotifier;
+use GladeHQ\QueryLens\Filament\QueryLensDataService;
+use GladeHQ\QueryLens\Filament\QueryLensPlugin;
 use GladeHQ\QueryLens\Storage\CacheQueryStorage;
 use GladeHQ\QueryLens\Storage\DatabaseQueryStorage;
 
@@ -58,7 +67,7 @@ class QueryLensServiceProvider extends ServiceProvider
             return new DataRetentionService();
         });
 
-        $this->app->singleton(QueryAnalyzer::class, function ($app) {
+        $this->app->scoped(QueryAnalyzer::class, function ($app) {
             $analyzer = new QueryAnalyzer(
                 $app['config']['query-lens'],
                 $app->make(QueryStorage::class)
@@ -74,6 +83,31 @@ class QueryLensServiceProvider extends ServiceProvider
         });
 
         $this->app->singleton(QueryListener::class);
+        $this->app->singleton(TransactionListener::class);
+
+        $this->app->singleton(IndexAdvisor::class, function ($app) {
+            $advisor = new IndexAdvisor();
+            $advisor->setStorage($app->make(QueryStorage::class));
+            return $advisor;
+        });
+
+        $this->app->singleton(RegressionDetector::class, function ($app) {
+            return new RegressionDetector($app->make(QueryStorage::class));
+        });
+
+        $this->app->singleton(WebhookNotifier::class);
+
+        $this->app->singleton(AIQueryOptimizer::class, function ($app) {
+            return new AIQueryOptimizer(config('query-lens.ai', []));
+        });
+
+        // Register Filament data service (usable with or without Filament panel)
+        $this->app->singleton(QueryLensDataService::class, function ($app) {
+            return new QueryLensDataService(
+                $app->make(QueryStorage::class),
+                $app->make(AggregationService::class)
+            );
+        });
     }
 
     public function boot(): void
@@ -97,13 +131,23 @@ class QueryLensServiceProvider extends ServiceProvider
                 AnalyzeQueriesCommand::class,
                 AggregateCommand::class,
                 PruneCommand::class,
+                SuggestIndexesCommand::class,
+                CheckRegressionCommand::class,
             ]);
         }
 
         $this->registerRoutes();
 
         if (config('query-lens.enabled', false)) {
-            $this->app->make(QueryListener::class)->register();
+            $queryListener = $this->app->make(QueryListener::class);
+            $queryListener->register();
+
+            // Register transaction tracking if enabled
+            if (config('query-lens.track_transactions', false)) {
+                $transactionListener = $this->app->make(TransactionListener::class);
+                $transactionListener->register();
+                $queryListener->setTransactionListener($transactionListener);
+            }
 
             // Register the middleware to track Request IDs
             $router = $this->app['router'];
@@ -148,6 +192,23 @@ class QueryLensServiceProvider extends ServiceProvider
                     Route::get('poll', [QueryLensController::class, 'poll'])->name('query-lens.api.v2.poll');
                     Route::get('requests', [QueryLensController::class, 'requestsV2'])->name('query-lens.api.v2.requests');
                     Route::get('storage', [QueryLensController::class, 'storageInfo'])->name('query-lens.api.v2.storage');
+                    Route::get('search', [QueryLensController::class, 'search'])->name('query-lens.api.v2.search');
+
+                    // Index suggestions
+                    Route::get('index-suggestions', [QueryLensController::class, 'indexSuggestions'])
+                        ->name('query-lens.api.v2.index-suggestions');
+
+                    // Regression detection
+                    Route::get('regressions', [QueryLensController::class, 'regressions'])
+                        ->name('query-lens.api.v2.regressions');
+
+                    // AI optimization
+                    Route::post('ai-optimize', [QueryLensController::class, 'aiOptimize'])
+                        ->name('query-lens.api.v2.ai-optimize');
+
+                    // Transaction tracking
+                    Route::get('transactions', [QueryLensController::class, 'transactions'])
+                        ->name('query-lens.api.v2.transactions');
 
                     // Alert management endpoints
                     Route::get('alerts', [AlertController::class, 'index'])->name('query-lens.api.v2.alerts.index');

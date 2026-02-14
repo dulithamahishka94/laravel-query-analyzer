@@ -5,15 +5,21 @@ namespace GladeHQ\QueryLens;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use GladeHQ\QueryLens\Contracts\QueryStorage;
-use GladeHQ\QueryLens\Models\AnalyzedQuery;
+use GladeHQ\QueryLens\DTOs\ComplexityAnalysis;
+use GladeHQ\QueryLens\DTOs\PerformanceRating;
+use GladeHQ\QueryLens\DTOs\QueryAnalysisResult;
+use GladeHQ\QueryLens\DTOs\QueryType;
+use GladeHQ\QueryLens\Support\SqlNormalizer;
 
 class QueryAnalyzer
 {
     protected array $config;
     protected QueryStorage $storage;
     protected ?string $requestId = null;
+    protected ?string $currentTransactionId = null;
     protected array $queryStructures = [];
     protected bool $enabled = true;
+    protected ?bool $sampledForRequest = null;
 
     public function __construct(array $config, QueryStorage $storage)
     {
@@ -26,10 +32,21 @@ class QueryAnalyzer
         $this->enabled = false;
     }
 
+    public function enableRecording(): void
+    {
+        $this->enabled = true;
+    }
+
+    public function isRecording(): bool
+    {
+        return $this->enabled;
+    }
+
     public function setRequestId(string $id): void
     {
         $this->requestId = $id;
         $this->queryStructures = []; // Clear structure tracking for new request
+        $this->sampledForRequest = $this->decideSampling();
     }
 
     public function getRequestId(): ?string
@@ -37,9 +54,44 @@ class QueryAnalyzer
         return $this->requestId;
     }
 
+    public function setCurrentTransactionId(?string $transactionId): void
+    {
+        $this->currentTransactionId = $transactionId;
+    }
+
+    public function getCurrentTransactionId(): ?string
+    {
+        return $this->currentTransactionId;
+    }
+
+    public function isSampled(): bool
+    {
+        // Lazy-evaluate for CLI or contexts where setRequestId was never called
+        if ($this->sampledForRequest === null) {
+            $this->sampledForRequest = $this->decideSampling();
+        }
+
+        return $this->sampledForRequest;
+    }
+
+    protected function decideSampling(): bool
+    {
+        $rate = (float) ($this->config['sampling_rate'] ?? 1.0);
+
+        if ($rate <= 0.0) {
+            return false;
+        }
+
+        if ($rate >= 1.0) {
+            return true;
+        }
+
+        return mt_rand(1, 10000) / 10000 <= $rate;
+    }
+
     public function recordQuery(string $sql, array $bindings = [], float $time = 0.0, string $connection = 'default'): void
     {
-        if (!$this->enabled) {
+        if (!$this->enabled || !$this->isSampled()) {
             return;
         }
 
@@ -58,6 +110,11 @@ class QueryAnalyzer
             if (is_string($binding) && str_contains($binding, 'laravel_query_lens_queries_v3')) {
                 return;
             }
+        }
+
+        // 1.2 Check configurable excluded patterns
+        if ($this->matchesExcludedPattern($sql)) {
+            return;
         }
 
         // 2. Ignore session queries if we are currently on the analyzer dashboard (heuristic)
@@ -79,6 +136,7 @@ class QueryAnalyzer
         $query = [
             'id' => (string) Str::orderedUuid(),
             'request_id' => $this->requestId ?? 'cli-' . getmypid(),
+            'transaction_id' => $this->currentTransactionId,
             'request_path' => request()->path(),
             'request_method' => request()->method(),
             'sql' => $sql,
@@ -95,6 +153,10 @@ class QueryAnalyzer
 
     public function recordCacheInteraction(string $type, string $key, array $tags = [], mixed $value = null): void
     {
+        if (!$this->enabled || !$this->isSampled()) {
+            return;
+        }
+
         // Ignore analyzer's own cache keys
         if (str_contains($key, 'laravel_query_lens_queries_v3')) {
             return;
@@ -129,6 +191,19 @@ class QueryAnalyzer
         $this->storage->store($event);
     }
 
+    protected function matchesExcludedPattern(string $sql): bool
+    {
+        $patterns = $this->config['excluded_patterns'] ?? [];
+
+        foreach ($patterns as $pattern) {
+            if (stripos($sql, $pattern) !== false) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     protected function analyzeWithNPlusOne(string $sql, array $bindings, float $time, bool $isNPlusOne): array
     {
         $analysis = $this->analyzeQuery($sql, $bindings, $time);
@@ -146,30 +221,35 @@ class QueryAnalyzer
 
     protected function getStructureHash(string $sql): string
     {
-        return md5(AnalyzedQuery::normalizeSql($sql));
+        return SqlNormalizer::hash($sql);
     }
 
     protected function findOrigin(): array
     {
-        $trace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
+        if (!($this->config['trace_origins'] ?? true)) {
+            return ['file' => 'unknown', 'line' => 0, 'is_vendor' => false];
+        }
+
+        $limit = (int) ($this->config['backtrace_limit'] ?? 30);
+        $trace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, $limit);
         $packageRoot = realpath(__DIR__ . '/..');
-        
+
         // Find the first frame that is not part of the framework or this package
         foreach ($trace as $frame) {
             if (!isset($frame['file'])) {
                 continue;
             }
-            
+
             $file = realpath($frame['file']);
-            
+
             // Skip the package itself
-            if (str_starts_with($file, $packageRoot)) {
+            if ($file && str_starts_with($file, $packageRoot)) {
                 continue;
             }
 
             // Skip Laravel framework and common internal paths
-            if (str_contains($file, '/vendor/laravel/') || 
-                str_contains($file, '/vendor/illuminate/') || 
+            if (str_contains($file, '/vendor/laravel/') ||
+                str_contains($file, '/vendor/illuminate/') ||
                 str_contains($file, '/storage/framework/')) {
                 continue;
             }
@@ -186,31 +266,10 @@ class QueryAnalyzer
 
     public function analyzeQuery(string $sql, array $bindings = [], float $time = 0.0): array
     {
-        return [
-            'type' => $this->getQueryType($sql),
-            'performance' => $this->analyzePerformance($sql, $time),
-            'complexity' => $this->analyzeComplexity($sql),
-            'recommendations' => $this->getRecommendations($sql, $time),
-            'issues' => $this->detectIssues($sql, $bindings),
-        ];
+        return $this->buildAnalysisResult($sql, $bindings, $time)->toArray();
     }
 
-    protected function getQueryType(string $sql): string
-    {
-        $sql = trim(strtoupper($sql));
-
-        if (str_starts_with($sql, 'SELECT')) return 'SELECT';
-        if (str_starts_with($sql, 'INSERT')) return 'INSERT';
-        if (str_starts_with($sql, 'UPDATE')) return 'UPDATE';
-        if (str_starts_with($sql, 'DELETE')) return 'DELETE';
-        if (str_starts_with($sql, 'CREATE')) return 'CREATE';
-        if (str_starts_with($sql, 'ALTER')) return 'ALTER';
-        if (str_starts_with($sql, 'DROP')) return 'DROP';
-
-        return 'OTHER';
-    }
-
-    protected function analyzePerformance(string $sql, float $time): array
+    protected function buildAnalysisResult(string $sql, array $bindings, float $time): QueryAnalysisResult
     {
         $thresholds = $this->config['performance_thresholds'] ?? [
             'fast' => 0.1,
@@ -218,48 +277,16 @@ class QueryAnalyzer
             'slow' => 1.0,
         ];
 
-        $rating = 'very_slow';
-        if ($time <= ($thresholds['fast'] ?? 0.1)) {
-            $rating = 'fast';
-        } elseif ($time <= ($thresholds['moderate'] ?? 0.5)) {
-            $rating = 'moderate';
-        } elseif ($time <= ($thresholds['slow'] ?? 1.0)) {
-            $rating = 'slow';
-        }
+        $weights = $this->config['complexity_weights'] ?? [];
 
-        return [
-            'execution_time' => $time,
-            'rating' => $rating,
-            'is_slow' => $time > ($thresholds['slow'] ?? 1.0),
-        ];
-    }
-
-    protected function analyzeComplexity(string $sql): array
-    {
-        $sql = strtoupper($sql);
-
-        $joinCount = substr_count($sql, 'JOIN');
-        $subqueryCount = substr_count($sql, 'SELECT') - 1; // Subtract main SELECT
-        $conditionCount = substr_count($sql, 'WHERE') + substr_count($sql, 'HAVING');
-        $orderByCount = substr_count($sql, 'ORDER BY');
-        $groupByCount = substr_count($sql, 'GROUP BY');
-
-        $complexityScore = $joinCount * 2 + $subqueryCount * 3 + $conditionCount + $orderByCount + $groupByCount;
-
-        $complexity = 'low';
-        if ($complexityScore > 10) {
-            $complexity = 'high';
-        } elseif ($complexityScore > 5) {
-            $complexity = 'medium';
-        }
-
-        return [
-            'score' => $complexityScore,
-            'level' => $complexity,
-            'joins' => $joinCount,
-            'subqueries' => $subqueryCount,
-            'conditions' => $conditionCount,
-        ];
+        return new QueryAnalysisResult(
+            type: QueryType::fromSql($sql),
+            performance: PerformanceRating::fromTime($time, $thresholds),
+            executionTime: $time,
+            complexity: ComplexityAnalysis::analyze($sql, $weights),
+            recommendations: $this->getRecommendations($sql, $time),
+            issues: $this->detectIssues($sql, $bindings),
+        );
     }
 
     protected function getRecommendations(string $sql, float $time): array

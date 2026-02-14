@@ -16,23 +16,29 @@ readonly class ComplexityAnalysis
 
     public static function analyze(string $sql, array $weights = []): self
     {
-        $sql = strtoupper($sql);
+        $upper = strtoupper($sql);
 
-        $joinCount = substr_count($sql, 'JOIN');
-        $subqueryCount = max(0, substr_count($sql, 'SELECT') - 1);
-        $conditionCount = substr_count($sql, 'WHERE') + substr_count($sql, 'HAVING');
+        $joinCount = substr_count($upper, 'JOIN');
+        $subqueryCount = max(0, substr_count($upper, 'SELECT') - 1);
+        $conditionCount = substr_count($upper, 'WHERE') + substr_count($upper, 'HAVING');
+        $orderByCount = substr_count($upper, 'ORDER BY');
+        $groupByCount = substr_count($upper, 'GROUP BY');
 
         $defaultWeights = [
             'joins' => 2,
             'subqueries' => 3,
             'conditions' => 1,
+            'order_by' => 1,
+            'group_by' => 1,
         ];
 
         $weights = array_merge($defaultWeights, $weights);
 
-        $score = ($joinCount * $weights['joins']) +
-                ($subqueryCount * $weights['subqueries']) +
-                ($conditionCount * $weights['conditions']);
+        $score = ($joinCount * $weights['joins'])
+            + ($subqueryCount * $weights['subqueries'])
+            + ($conditionCount * $weights['conditions'])
+            + ($orderByCount * $weights['order_by'])
+            + ($groupByCount * $weights['group_by']);
 
         $level = ComplexityLevel::fromScore($score);
 

@@ -48,6 +48,9 @@
             ]
         }
     },
+    "suggest": {
+        "filament/filament": "Required for the Filament panel plugin integration (^3.0)"
+    },
     "config": {
         "sort-packages": true
     },

@@ -11,19 +11,24 @@ enum PerformanceRating: string
     case SLOW = 'slow';
     case VERY_SLOW = 'very_slow';
 
-    public static function fromTime(float $time, array $thresholds): self
+    public static function fromTime(float $time, array $thresholds = []): self
     {
+        $fast = $thresholds['fast'] ?? 0.1;
+        $moderate = $thresholds['moderate'] ?? 0.5;
+        $slow = $thresholds['slow'] ?? 1.0;
+
         return match (true) {
-            $time <= $thresholds['fast'] => self::FAST,
-            $time <= $thresholds['moderate'] => self::MODERATE,
-            $time <= $thresholds['slow'] => self::SLOW,
+            $time <= $fast => self::FAST,
+            $time <= $moderate => self::MODERATE,
+            $time <= $slow => self::SLOW,
             default => self::VERY_SLOW,
         };
     }
 
-    public function toArray(): array
+    public function toArray(float $executionTime = 0.0): array
     {
         return [
+            'execution_time' => $executionTime,
             'rating' => $this->value,
             'is_slow' => $this->isSlow(),
         ];
@@ -31,7 +36,7 @@ enum PerformanceRating: string
 
     public function isSlow(): bool
     {
-        return $this === self::SLOW || $this === self::VERY_SLOW;
+        return $this === self::VERY_SLOW;
     }
 
     public function getColorClass(): string

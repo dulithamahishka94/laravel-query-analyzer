@@ -14,6 +14,7 @@ use GladeHQ\QueryLens\Models\AnalyzedQuery;
 class AlertService
 {
     protected array $config;
+    protected ?\Illuminate\Database\Eloquent\Collection $cachedAlerts = null;
 
     public function __construct()
     {
@@ -22,13 +23,25 @@ class AlertService
 
     public function checkAlerts(AnalyzedQuery $query): void
     {
-
-
-        $alerts = Alert::enabled()->get();
+        $alerts = $this->getEnabledAlerts();
 
         foreach ($alerts as $alert) {
             $this->checkAlert($alert, $query);
         }
+    }
+
+    protected function getEnabledAlerts(): \Illuminate\Database\Eloquent\Collection
+    {
+        if ($this->cachedAlerts === null) {
+            $this->cachedAlerts = Alert::enabled()->get();
+        }
+
+        return $this->cachedAlerts;
+    }
+
+    public function clearAlertCache(): void
+    {
+        $this->cachedAlerts = null;
     }
 
     protected function checkAlert(Alert $alert, AnalyzedQuery $query): void

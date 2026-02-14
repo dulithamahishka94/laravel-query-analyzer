@@ -10,29 +10,37 @@ use Illuminate\View\View;
 use GladeHQ\QueryLens\Contracts\QueryStorage;
 use GladeHQ\QueryLens\QueryAnalyzer;
 use GladeHQ\QueryLens\Services\AggregationService;
+use GladeHQ\QueryLens\Services\DashboardService;
+use GladeHQ\QueryLens\Services\ExplainService;
+use GladeHQ\QueryLens\Services\AIQueryOptimizer;
+use GladeHQ\QueryLens\Services\IndexAdvisor;
+use GladeHQ\QueryLens\Services\QueryExportService;
+use GladeHQ\QueryLens\Services\RegressionDetector;
+use GladeHQ\QueryLens\Listeners\TransactionListener;
 
 class QueryLensController extends Controller
 {
     protected QueryAnalyzer $analyzer;
     protected QueryStorage $storage;
+    protected ExplainService $explainService;
+    protected QueryExportService $exportService;
+    protected DashboardService $dashboardService;
 
-    public function __construct(QueryAnalyzer $analyzer, QueryStorage $storage)
-    {
+    public function __construct(
+        QueryAnalyzer $analyzer,
+        QueryStorage $storage,
+        ?ExplainService $explainService = null,
+        ?QueryExportService $exportService = null,
+        ?DashboardService $dashboardService = null,
+    ) {
         $this->analyzer = $analyzer;
         $this->storage = $storage;
+        $this->explainService = $explainService ?? new ExplainService();
+        $this->exportService = $exportService ?? new QueryExportService();
+        $this->dashboardService = $dashboardService ?? new DashboardService();
     }
 
     public function explain(Request $request): JsonResponse
-    {
-        $response = $this->explainLogic($request);
-        return $response->withHeaders([
-            'Cache-Control' => 'no-cache, no-store, must-revalidate',
-            'Pragma' => 'no-cache',
-            'Expires' => '0',
-        ]);
-    }
-
-    protected function explainLogic(Request $request): JsonResponse
     {
         $sql = $request->input('sql');
         $bindings = $request->input('bindings', []);
@@ -42,172 +50,13 @@ class QueryLensController extends Controller
             return response()->json(['error' => 'Only SELECT queries can be explained'], 400);
         }
 
-        $standardResult = [];
-        $analyzeResult = [];
-        $supportsAnalyze = false;
-
         try {
-            // 1. Always get Standard EXPLAIN for the table view
-            $standardResult = \Illuminate\Support\Facades\DB::connection($connection)->select('EXPLAIN ' . $sql, $bindings);
+            $result = $this->explainService->explain($sql, $bindings, $connection);
         } catch (\Exception $e) {
             return response()->json(['error' => 'Could not explain query: ' . $e->getMessage()], 500);
         }
 
-        try {
-            // 2. Try EXPLAIN ANALYZE for the profiling data
-            $analyzeResult = \Illuminate\Support\Facades\DB::connection($connection)->select('EXPLAIN ANALYZE ' . $sql, $bindings);
-            $supportsAnalyze = true;
-        } catch (\Exception $e) {
-            // Silently fail if ANALYZE is not supported
-        }
-
-        // Initialize default humanization from standard result
-        $humanized = $this->humanizeExplain((array) $standardResult, (array) $analyzeResult);
-
-        // If EXPLAIN ANALYZE is supported, use the Deep Analyzer for superior insights
-        if ($supportsAnalyze && !empty($analyzeResult)) {
-            try {
-                $rawAnalyze = (string) (reset($analyzeResult[0]) ?: '');
-                $deepAnalyzer = new \GladeHQ\QueryLens\Services\Explain\Explainer();
-                $analysisResult = $deepAnalyzer->analyze($rawAnalyze);
-                
-                // 1. Get the full human-readable explanation
-                $fullExplanation = $deepAnalyzer->getExplainer()->explain($analysisResult);
-                
-                // Replace the raw output with the human-readable one for the 'Profiling Tree' section
-                // We keep the first key to maintain structure compatibility with the frontend
-                $firstKey = array_key_first((array) $analyzeResult[0]);
-                $analyzeResult = [[$firstKey => $fullExplanation]];
-
-                // 2. Enhance Summary and Insights using the deep analysis
-                // We overwrite the basic summary with the one from our analyzer
-                $summaryGenerator = new \GladeHQ\QueryLens\Services\Explain\Formatter\CompactFormatter();
-                // Extract just the summary line from compact formatter (it's the first line)
-                $compactStats = explode("\n", $summaryGenerator->format($analysisResult))[0] ?? '';
-                
-                // Combine health status with time/rows
-                $healthStatus = $analysisResult->getHealthStatus();
-                $healthMsg = match($healthStatus) {
-                    'critical' => 'Critical issues detected.',
-                    'warning' => 'Performance warnings found.',
-                    'needs_attention' => 'Some optimization opportunities identified.',
-                    'good' => 'Query appears healthy.',
-                    default => 'Analysis complete.'
-                };
-                
-                $humanized['summary'] = "{$healthMsg} {$compactStats}";
-
-                // 3. Add Deep Analysis Issues to Insights
-                $deepIssues = [];
-                foreach ($analysisResult->getIssuesBySeverity() as $issue) {
-                    $severity = strtoupper($issue->getSeverity()->value);
-                    $deepIssues[] = "{$issue->getSeverityEmoji()} **{$issue->getTitle()}** ({$severity}): {$issue->getMessage()}";
-                }
-                
-                if (!empty($deepIssues)) {
-                    // Prepend deep issues to existing standard insights
-                    $humanized['insights'] = array_merge($deepIssues, $humanized['insights']);
-                }
-
-            } catch (\Exception $e) {
-                // Fallback to raw output on error, log it
-                \Illuminate\Support\Facades\Log::warning('Deep Explain Analyzer failed: ' . $e->getMessage());
-            }
-        }
-
-        // Detect if the result is a tree (for backward compatibility)
-        $isStandardTree = count((array) ($standardResult[0] ?? [])) === 1;
-
-        return response()->json([
-            'standard' => array_values((array) $standardResult),
-            'analyze' => array_values((array) $analyzeResult),
-            'raw_analyze' => $rawAnalyze ?? null,
-            'supports_analyze' => $supportsAnalyze,
-            'summary' => $humanized['summary'] ?? 'No summary available.',
-            'insights' => array_values($humanized['insights'] ?? []),
-            // BACKWARD COMPATIBILITY: Force old JS to render trees correctly
-            'result' => !empty($analyzeResult) ? $analyzeResult : $standardResult,
-            'type' => (!empty($analyzeResult) || $isStandardTree) ? 'analyze' : 'standard',
-        ]);
-    }
-
-    protected function humanizeExplain(array $standard, array $analyze): array
-    {
-        $insights = [];
-        $summaryParts = [];
-        
-        if (empty($standard)) {
-            return ['summary' => 'No execution plan data was returned from the database.', 'insights' => []];
-        }
-
-        foreach ($standard as $row) {
-            $row = (array) $row;
-            if (empty($row)) continue;
-
-            // Handle tree format (Standard EXPLAIN in some MySQL 8 configs)
-            if (count($row) === 1 && !isset($row['type'])) {
-                $treePlan = (string) (reset($row) ?: '');
-                if (str_contains($treePlan, 'Table scan') || str_contains($treePlan, 'Full scan')) {
-                    $summaryParts[] = "The database is performing a **Full Table Scan**.";
-                    $insights[] = "❌ **Full Table Scan**: Database is checking every single row because no suitable index was found.";
-                }
-                if (str_contains($treePlan, 'Index lookup') || str_contains($treePlan, 'Index scan')) {
-                    $summaryParts[] = "The database is using an **Index** to look up data.";
-                    $insights[] = "✅ **Index Used**: The query is using an index for filtering.";
-                }
-                continue;
-            }
-
-            $type = $row['type'] ?? '';
-            $extra = $row['Extra'] ?? '';
-            $key = $row['key'] ?? '';
-            $rows = $row['rows'] ?? 'unknown number of';
-            $table = $row['table'] ?? 'your table';
-
-            // 1. Access Method
-            if ($type === 'ALL') {
-                $summaryParts[] = "The database is performing a **Full Table Scan** on `$table`.";
-                $insights[] = "❌ **Full Table Scan**: Database is checking every single row because no suitable index was found.";
-            } elseif ($key) {
-                $summaryParts[] = "The database is using the **`$key` index** to look up data in `$table`.";
-                $insights[] = "✅ **Index Used**: The query is efficiently filtered using the `$key` index.";
-            }
-
-            // 2. Volume
-            if ($type === 'ALL' || (is_numeric($rows) && $rows > 1000)) {
-                 $summaryParts[] = "It expects to scan approximately **$rows rows** to resolve this part of the query.";
-            }
-
-            // 3. Overheads
-            if (str_contains($extra, 'Using filesort')) {
-                $summaryParts[] = "It is also performing a **Filesort**, meaning results are being sorted in memory or on disk.";
-                $insights[] = "🐌 **Filesort**: Consider adding an index on your `ORDER BY` columns to avoid expensive memory/disk sorting.";
-            }
-
-            if (str_contains($extra, 'Using temporary')) {
-                $summaryParts[] = "An **Internal Temporary Table** is being created to resolve this query.";
-                $insights[] = "🛠️ **Temporary Table**: This is often caused by complex GROUP BY or DISTINCT operations. Efficiency could be improved.";
-            }
-        }
-
-        // Only add generic analyze insights if we haven't already processed them in the main logic
-        // (This function is still useful for the standard explain fallback)
-        if (!empty($analyze)) {
-            $firstRow = (array) ($analyze[0] ?? []);
-            $plan = (string) (reset($firstRow) ?: '');
-            if ($plan && str_contains($plan, 'disk')) {
-                $insights[] = "🔥 **Disk I/O**: The profiler detected that temporary data was written to disk, which is a major performance killer.";
-            }
-        }
-
-        $summary = !empty($summaryParts) 
-            ? implode(' ', array_unique($summaryParts)) . "."
-            : "The database is resolving this query using standard index lookups. No major performance red flags were detected during optimization.";
-
-        return [
-            'summary' => $summary,
-            'insights' => array_unique($insights)
-        ];
+        return $this->noCacheResponse(response()->json($result));
     }
 
     public function dashboard(): \Illuminate\Http\Response
@@ -216,23 +65,20 @@ class QueryLensController extends Controller
             'stats' => $this->analyzer->getStats(),
             'isEnabled' => config('query-lens.enabled', false),
         ]);
-        
-        return $this->noCacheResponse($response); // Force browser to reload JS
+
+        return $this->noCacheResponse($response);
     }
 
     public function queries(Request $request): JsonResponse
     {
         $queries = $this->analyzer->getQueries();
 
-        // Filter by Request ID if provided
         if ($requestId = $request->query('request_id')) {
             $queries = $queries->where('request_id', $requestId)->values();
         }
 
-        // Apply shared filters
-        $queries = $this->applyFilters($queries, $request);
+        $queries = $this->dashboardService->applyFilters($queries, $request);
 
-        // Apply sorting
         $sort = $request->query('sort', 'timestamp');
         $order = $request->query('order', 'desc');
 
@@ -254,16 +100,12 @@ class QueryLensController extends Controller
 
     public function requests(Request $request): JsonResponse
     {
-        // Aggregate/Group queries by Request ID efficiently
-        // We do NOT filter before grouping so that we preserve the request list
         $requests = $this->analyzer->getQueries()
             ->groupBy('request_id')
             ->map(function ($group) use ($request) {
                 $first = $group->first();
-                
-                // Analyze the relevant queries for this request based on filters
-                $filtered = $this->applyFilters($group, $request);
-                
+                $filtered = $this->dashboardService->applyFilters($group, $request);
+
                 return [
                     'request_id' => $first['request_id'],
                     'method' => $first['request_method'] ?? 'UNKNOWN',
@@ -280,67 +122,15 @@ class QueryLensController extends Controller
         return $this->noCacheResponse(response()->json($requests));
     }
 
-    protected function applyFilters($queries, Request $request)
-    {
-        // Apply filters
-        if ($type = $request->query('type')) {
-            $queries = $queries->filter(fn($q) => strtolower($q['analysis']['type']) === $type)->values();
-        }
-
-        if ($rating = $request->query('rating')) {
-            $queries = $queries->filter(fn($q) => ($q['analysis']['performance']['rating'] ?? 'unknown') === $rating)->values();
-        }
-
-        // Filter by issue type
-        if ($issueType = $request->query('issue_type')) {
-            $queries = $queries->filter(function ($q) use ($issueType) {
-                $issues = $q['analysis']['issues'] ?? [];
-                if (empty($issues)) return false;
-                
-                // Check if any issue matches the requested type
-                foreach ($issues as $issue) {
-                    if (strtolower($issue['type']) === strtolower($issueType)) {
-                        return true;
-                    }
-                }
-                return false;
-            })->values();
-        }
-
-        // Legacy slow_only filter
-        if ($request->has('slow_only') && $request->boolean('slow_only')) {
-            $slowThreshold = config('query-lens.performance_thresholds.slow', 1.0);
-            $queries = $queries->where('time', '>', $slowThreshold);
-        }
-
-        return $queries;
-    }
-
     public function query(Request $request, string $id): JsonResponse
     {
-        return $this->noCacheResponse($this->queryLogic($request, $id));
-    }
-
-    protected function queryLogic(Request $request, string $id): JsonResponse
-    {
-        $rawQueries = $this->analyzer->getQueries();
-        
-        $query = $rawQueries->firstWhere('id', $id);
+        $query = $this->analyzer->getQueries()->firstWhere('id', $id);
 
         if (!$query) {
-             return response()->json(['error' => 'Query not found. ID: ' . $id], 404);
+            return response()->json(['error' => 'Query not found. ID: ' . $id], 404);
         }
 
-        return response()->json($query);
-    }
-
-    protected function noCacheResponse($response)
-    {
-        return $response->withHeaders([
-            'Cache-Control' => 'no-cache, no-store, must-revalidate',
-            'Pragma' => 'no-cache',
-            'Expires' => '0',
-        ]);
+        return $this->noCacheResponse(response()->json($query));
     }
 
     public function stats(): JsonResponse
@@ -382,31 +172,11 @@ class QueryLensController extends Controller
     {
         $format = $request->input('format', 'json');
         $queries = $this->analyzer->getQueries();
+        $stats = $this->analyzer->getStats();
 
-        if ($format === 'csv') {
-            $csv = "Index,Type,Time,Performance,Complexity,Issues,SQL\n";
-            foreach ($queries as $index => $query) {
-                $analysis = $query['analysis'];
-                $csv .= sprintf(
-                    "%d,%s,%.3f,%s,%s,%d,\"%s\"\n",
-                    $index + 1,
-                    $analysis['type'],
-                    $query['time'],
-                    $analysis['performance']['rating'],
-                    $analysis['complexity']['level'],
-                    count($analysis['issues']),
-                    str_replace('"', '""', $query['sql'])
-                );
-            }
+        $result = $this->exportService->export($queries, $format, $stats);
 
-            return response()->json(['data' => $csv, 'filename' => 'query-analysis-' . date('Y-m-d-H-i-s') . '.csv']);
-        }
-
-        return response()->json([
-            'data' => $queries->toArray(),
-            'stats' => $this->analyzer->getStats(),
-            'filename' => 'query-analysis-' . date('Y-m-d-H-i-s') . '.json'
-        ]);
+        return response()->json($result);
     }
 
     // ==================== V2 API Endpoints ====================
@@ -451,32 +221,12 @@ class QueryLensController extends Controller
             return response()->json(['error' => 'Request not found'], 404);
         }
 
-        // Build timeline data
-        $minTimestamp = min(array_column($queries, 'timestamp'));
-        $timelineData = [];
+        $waterfall = $this->dashboardService->buildWaterfallTimeline($queries);
 
-        foreach ($queries as $index => $query) {
-            $startMs = (($query['timestamp'] ?? 0) - ($query['time'] ?? 0) - $minTimestamp) * 1000;
-            $endMs = (($query['timestamp'] ?? 0) - $minTimestamp) * 1000;
-
-            $timelineData[] = [
-                'index' => $index + 1,
-                'type' => $query['analysis']['type'] ?? 'OTHER',
-                'start_ms' => max(0, $startMs),
-                'end_ms' => $endMs,
-                'duration_ms' => ($query['time'] ?? 0) * 1000,
-                'sql_preview' => substr($query['sql'] ?? '', 0, 100),
-                'is_slow' => $query['analysis']['performance']['is_slow'] ?? false,
-            ];
-        }
-
-        return $this->noCacheResponse(response()->json([
-            'request_id' => $id,
-            'queries' => $queries,
-            'timeline_data' => $timelineData,
-            'total_queries' => count($queries),
-            'total_time' => array_sum(array_column($queries, 'time')),
-        ]));
+        return $this->noCacheResponse(response()->json(array_merge(
+            ['request_id' => $id, 'queries' => $queries],
+            $waterfall,
+        )));
     }
 
     public function overview(Request $request): JsonResponse
@@ -495,7 +245,6 @@ class QueryLensController extends Controller
         $newQueries = $this->storage->getQueriesSince($since, 50);
         $stats = $this->analyzer->getStats();
 
-        // Get recent alerts if using database storage
         $alerts = [];
         if ($this->storage->supportsPersistence()) {
             $alertService = app(\GladeHQ\QueryLens\Services\AlertService::class);
@@ -534,6 +283,26 @@ class QueryLensController extends Controller
         ]));
     }
 
+    public function search(Request $request): JsonResponse
+    {
+        $filters = array_filter([
+            'sql_like' => $request->query('sql_like'),
+            'table_name' => $request->query('table_name'),
+            'time_from' => $request->query('time_from'),
+            'time_to' => $request->query('time_to'),
+            'min_duration' => $request->query('min_duration'),
+            'max_duration' => $request->query('max_duration'),
+            'type' => $request->query('type'),
+            'is_slow' => $request->has('is_slow') ? $request->boolean('is_slow') : null,
+            'page' => $request->query('page', 1),
+            'per_page' => $request->query('per_page', 15),
+        ], fn($v) => $v !== null);
+
+        $results = $this->storage->search($filters);
+
+        return $this->noCacheResponse(response()->json($results));
+    }
+
     public function storageInfo(): JsonResponse
     {
         $retentionService = app(\GladeHQ\QueryLens\Services\DataRetentionService::class);
@@ -544,6 +313,117 @@ class QueryLensController extends Controller
             'stats' => $this->storage->supportsPersistence()
                 ? $retentionService->getStorageStats()
                 : null,
+        ]);
+    }
+
+    public function aiOptimize(Request $request): JsonResponse
+    {
+        $optimizer = app(AIQueryOptimizer::class);
+
+        $sql = $request->input('sql');
+
+        if (!$sql) {
+            return response()->json(['error' => 'SQL query is required'], 400);
+        }
+
+        $context = array_filter([
+            'explain' => $request->input('explain'),
+            'schema' => $request->input('schema'),
+            'frequency' => $request->input('frequency'),
+            'avg_duration' => $request->input('avg_duration'),
+            'indexes' => $request->input('indexes'),
+        ]);
+
+        $result = $optimizer->optimize($sql, $context);
+
+        return $this->noCacheResponse(response()->json($result));
+    }
+
+    public function regressions(Request $request): JsonResponse
+    {
+        $detector = app(RegressionDetector::class);
+
+        $period = $request->query('period', 'daily');
+        $threshold = (float) $request->query('threshold', config('query-lens.regression.threshold', 0.2));
+
+        $result = $detector->detect($period, $threshold);
+
+        return $this->noCacheResponse(response()->json($result));
+    }
+
+    public function indexSuggestions(Request $request): JsonResponse
+    {
+        $advisor = app(IndexAdvisor::class);
+
+        if ($sql = $request->query('sql')) {
+            $result = $advisor->analyzeQuery($sql);
+            return $this->noCacheResponse(response()->json($result));
+        }
+
+        $days = (int) $request->query('days', 7);
+        $suggestions = $advisor->analyzePatterns($days);
+
+        return $this->noCacheResponse(response()->json([
+            'suggestions' => $suggestions,
+            'days_analyzed' => $days,
+        ]));
+    }
+
+    public function transactions(Request $request): JsonResponse
+    {
+        if (!config('query-lens.track_transactions', false)) {
+            return $this->noCacheResponse(response()->json([
+                'error' => 'Transaction tracking is disabled',
+                'hint' => 'Set QUERY_LENS_TRACK_TRANSACTIONS=true in your .env file',
+            ], 400));
+        }
+
+        $transactionListener = app(TransactionListener::class);
+
+        $completed = $transactionListener->getCompletedTransactions();
+        $active = $transactionListener->getActiveTransactions();
+
+        // Apply optional filters
+        $status = $request->query('status');
+        $connection = $request->query('connection');
+
+        if ($status === 'active') {
+            $results = $active;
+        } elseif ($status) {
+            $results = array_filter($completed, fn($t) => $t['status'] === $status);
+        } else {
+            $results = array_merge($active, $completed);
+        }
+
+        if ($connection) {
+            $results = array_filter($results, fn($t) => $t['connection'] === $connection);
+        }
+
+        // Sort by started_at descending
+        usort($results, fn($a, $b) => ($b['started_at'] ?? 0) <=> ($a['started_at'] ?? 0));
+
+        $limit = (int) $request->query('limit', 100);
+        $results = array_slice(array_values($results), 0, $limit);
+
+        $summary = [
+            'total_completed' => count($completed),
+            'total_active' => count($active),
+            'committed' => count(array_filter($completed, fn($t) => $t['status'] === 'committed')),
+            'rolled_back' => count(array_filter($completed, fn($t) => $t['status'] === 'rolled_back')),
+        ];
+
+        return $this->noCacheResponse(response()->json([
+            'transactions' => $results,
+            'summary' => $summary,
+        ]));
+    }
+
+    protected function noCacheResponse($response)
+    {
+        return $response->withHeaders([
+            'Cache-Control' => 'no-cache, no-store, must-revalidate',
+            'Pragma' => 'no-cache',
+            'Expires' => '0',
         ]);
     }
 }

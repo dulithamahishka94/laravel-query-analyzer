@@ -27,6 +27,7 @@ return [
         'enabled' => env('QUERY_LENS_WEB_UI_ENABLED', true),
         'allowed_ips' => ['127.0.0.1', '::1'], // Only allow local access by default
         'auth_callback' => null, // Custom authentication callback
+        'auth_gate' => env('QUERY_LENS_AUTH_GATE', null), // Laravel Gate name (null = disabled)
     ],
 
     /*
@@ -54,6 +55,19 @@ return [
     | Configure various aspects of the query analysis behavior.
     |
     */
+    /*
+    |--------------------------------------------------------------------------
+    | Sampling Rate
+    |--------------------------------------------------------------------------
+    |
+    | Controls what fraction of requests have their queries recorded.
+    | 1.0 = record every request (default), 0.1 = record 10% of requests,
+    | 0.0 = disable recording entirely. The decision is made once per
+    | request so all queries within a sampled request are captured.
+    |
+    */
+    'sampling_rate' => env('QUERY_LENS_SAMPLING_RATE', 1.0),
+
     'analysis' => [
         // Maximum number of queries to keep in memory
         'max_queries' => env('QUERY_LENS_MAX_QUERIES', 1000),
@@ -64,6 +78,19 @@ return [
         // Minimum execution time to record a query (in seconds)
         'min_execution_time' => env('QUERY_LENS_MIN_TIME', 0.0),
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Origin Tracing
+    |--------------------------------------------------------------------------
+    |
+    | Controls how query origin (file/line) is determined via debug_backtrace.
+    | Disable in production for maximum performance. The backtrace_limit caps
+    | stack depth to prevent expensive full-stack walks on every query.
+    |
+    */
+    'trace_origins' => env('QUERY_LENS_TRACE_ORIGINS', true),
+    'backtrace_limit' => env('QUERY_LENS_BACKTRACE_LIMIT', 30),
 
     /*
     |--------------------------------------------------------------------------
@@ -163,5 +190,55 @@ return [
         'enable_trends' => true,
         'enable_top_queries' => true,
         'enable_alerts_panel' => true,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Regression Detection
+    |--------------------------------------------------------------------------
+    |
+    | Configure regression detection thresholds and webhook notifications.
+    | Use with the query-lens:check-regression artisan command for CI/CD.
+    |
+    */
+    /*
+    |--------------------------------------------------------------------------
+    | AI-Powered Optimization
+    |--------------------------------------------------------------------------
+    |
+    | Configure AI-powered query optimization suggestions.
+    | Disabled by default. The package works perfectly without AI.
+    |
+    | Supported providers: 'openai' (works with any OpenAI-compatible API)
+    |
+    */
+    'ai' => [
+        'enabled' => env('QUERY_LENS_AI_ENABLED', false),
+        'provider' => env('QUERY_LENS_AI_PROVIDER', 'openai'),
+        'api_key' => env('QUERY_LENS_AI_KEY'),
+        'model' => env('QUERY_LENS_AI_MODEL', 'gpt-4o-mini'),
+        'endpoint' => env('QUERY_LENS_AI_ENDPOINT', 'https://api.openai.com/v1/chat/completions'),
+        'cache_ttl' => 3600,
+        'rate_limit' => 10,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Transaction Tracking
+    |--------------------------------------------------------------------------
+    |
+    | Track database transaction begin/commit/rollback events. Records
+    | transaction duration, nesting depth, query count, and outcome.
+    | Associates queries with their enclosing transaction automatically.
+    |
+    | Disabled by default. Enable for debugging transaction-heavy workloads.
+    |
+    */
+    'track_transactions' => env('QUERY_LENS_TRACK_TRANSACTIONS', false),
+
+    'regression' => [
+        'webhook_url' => env('QUERY_LENS_REGRESSION_WEBHOOK_URL'),
+        'threshold' => env('QUERY_LENS_REGRESSION_THRESHOLD', 0.2),
+        'headers' => [],
     ],
 ];

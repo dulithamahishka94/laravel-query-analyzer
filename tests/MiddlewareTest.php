@@ -3,6 +3,7 @@
 namespace GladeHQ\QueryLens\Tests;
 
 use Orchestra\Testbench\TestCase;
+use GladeHQ\QueryLens\Contracts\QueryStorage;
 use GladeHQ\QueryLens\QueryAnalyzer;
 use GladeHQ\QueryLens\Http\Middleware\AnalyzeQueryMiddleware;
 use Illuminate\Http\Request;
@@ -12,16 +13,18 @@ class MiddlewareTest extends TestCase
 {
     public function test_middleware_sets_request_id()
     {
-        $analyzerDescriptor = Mockery::mock(QueryAnalyzer::class);
-        $analyzerDescriptor->shouldReceive('getRequestId')
+        $analyzerMock = Mockery::mock(QueryAnalyzer::class);
+        $analyzerMock->shouldReceive('getRequestId')
             ->once()
             ->andReturnNull();
-        $analyzerDescriptor->shouldReceive('setRequestId')
+        $analyzerMock->shouldReceive('setRequestId')
             ->once()
             ->with(Mockery::type('string'))
             ->andReturnNull();
 
-        $middleware = new AnalyzeQueryMiddleware($analyzerDescriptor);
+        $storageMock = Mockery::mock(QueryStorage::class);
+
+        $middleware = new AnalyzeQueryMiddleware($analyzerMock, $storageMock);
 
         $request = Request::create('/test', 'GET');
 

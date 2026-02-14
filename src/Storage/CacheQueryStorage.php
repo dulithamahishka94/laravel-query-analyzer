@@ -5,12 +5,14 @@ namespace GladeHQ\QueryLens\Storage;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 use GladeHQ\QueryLens\Contracts\QueryStorage;
+use GladeHQ\QueryLens\Support\SqlNormalizer;
 
 class CacheQueryStorage implements QueryStorage
 {
     protected string $cacheKey = 'laravel_query_lens_queries_v3';
     protected string $requestsCacheKey = 'laravel_query_lens_requests_v1';
     protected int $ttl = 3600; // 1 hour
+    protected ?string $store = null;
     protected ?\GladeHQ\QueryLens\Services\AlertService $alertService = null;
 
     public function __construct(?string $store = null)
@@ -63,12 +65,12 @@ class CacheQueryStorage implements QueryStorage
         // For cache, we need to count from the cached array
         if (!$query['request_id']) return 0;
         
-        $sqlHash = \GladeHQ\QueryLens\Models\AnalyzedQuery::hashSql($query['sql'] ?? '');
-        
+        $sqlHash = SqlNormalizer::hash($query['sql'] ?? '');
+
         $queries = $this->getByRequest($query['request_id']);
-        
+
         return collect($queries)
-            ->filter(fn($q) => \GladeHQ\QueryLens\Models\AnalyzedQuery::hashSql($q['sql'] ?? '') === $sqlHash)
+            ->filter(fn($q) => SqlNormalizer::hash($q['sql'] ?? '') === $sqlHash)
             ->count();
     }
 
@@ -118,7 +120,7 @@ class CacheQueryStorage implements QueryStorage
 
         // Group by normalized SQL hash
         $grouped = $queries->groupBy(function ($q) {
-            return $this->hashSql($q['sql'] ?? '');
+            return SqlNormalizer::hash($q['sql'] ?? '');
         });
 
         $ranked = $grouped->map(function ($group, $hash) {
@@ -216,6 +218,22 @@ class CacheQueryStorage implements QueryStorage
         );
     }
 
+    public function finalizeRequest(string $requestId): void
+    {
+        // Cache storage computes aggregates on-the-fly; no finalization needed
+    }
+
+    public function search(array $filters = []): array
+    {
+        // Cache storage does not support persistent search -- return empty result set
+        return [
+            'data' => [],
+            'total' => 0,
+            'page' => max(1, (int) ($filters['page'] ?? 1)),
+            'per_page' => max(1, min(100, (int) ($filters['per_page'] ?? 15))),
+        ];
+    }
+
     public function supportsPersistence(): bool
     {
         return false;
@@ -229,17 +247,6 @@ class CacheQueryStorage implements QueryStorage
             'week' => now()->subWeek(),
             default => now()->subDay(),
         };
-    }
-
-    protected function hashSql(string $sql): string
-    {
-        // Normalize SQL by removing literals
-        $normalized = preg_replace('/\b\d+\b/', '?', $sql);
-        $normalized = preg_replace("/'[^']*'/", '?', $normalized);
-        $normalized = preg_replace('/"[^"]*"/', '?', $normalized);
-        $normalized = preg_replace('/\s+/', ' ', $normalized);
-
-        return md5(trim($normalized));
     }
 
     protected function percentile(\Illuminate\Support\Collection $values, int $percentile): float

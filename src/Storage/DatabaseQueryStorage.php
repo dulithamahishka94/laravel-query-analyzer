@@ -66,11 +66,6 @@ class DatabaseQueryStorage implements QueryStorage
             'created_at' => now(),
         ]);
 
-        // Update request aggregates
-        if ($requestId) {
-            $this->updateRequestAggregates($requestId);
-        }
-
         // Check alerts
         if ($this->alertService) {
             $this->alertService->checkAlerts($analyzedQuery);
@@ -200,9 +195,70 @@ class DatabaseQueryStorage implements QueryStorage
             ->toArray();
     }
 
+    public function search(array $filters = []): array
+    {
+        $page = max(1, (int) ($filters['page'] ?? 1));
+        $perPage = max(1, min(100, (int) ($filters['per_page'] ?? 15)));
+
+        $query = AnalyzedQuery::query()->orderByDesc('created_at');
+
+        if (!empty($filters['sql_like'])) {
+            $query->where('sql_normalized', 'like', '%' . $filters['sql_like'] . '%');
+        }
+
+        if (!empty($filters['table_name'])) {
+            $query->where('sql', 'like', '%' . $filters['table_name'] . '%');
+        }
+
+        if (!empty($filters['time_from'])) {
+            $query->where('created_at', '>=', Carbon::parse($filters['time_from']));
+        }
+
+        if (!empty($filters['time_to'])) {
+            $query->where('created_at', '<=', Carbon::parse($filters['time_to']));
+        }
+
+        if (isset($filters['min_duration'])) {
+            $query->where('time', '>=', (float) $filters['min_duration']);
+        }
+
+        if (isset($filters['max_duration'])) {
+            $query->where('time', '<=', (float) $filters['max_duration']);
+        }
+
+        if (!empty($filters['type'])) {
+            $query->where('type', strtoupper($filters['type']));
+        }
+
+        if (isset($filters['is_slow'])) {
+            $query->where('is_slow', (bool) $filters['is_slow']);
+        }
+
+        $total = $query->count();
+
+        $data = $query
+            ->offset(($page - 1) * $perPage)
+            ->limit($perPage)
+            ->get()
+            ->map(fn($q) => $q->toApiArray())
+            ->toArray();
+
+        return [
+            'data' => $data,
+            'total' => $total,
+            'page' => $page,
+            'per_page' => $perPage,
+        ];
+    }
+
     public function supportsPersistence(): bool
     {
         return true;
+    }
+
+    public function finalizeRequest(string $requestId): void
+    {
+        $this->updateRequestAggregates($requestId);
     }
 
     protected function ensureRequestExists(string $requestId, array $query): void

@@ -178,6 +178,60 @@ class InMemoryQueryStorage implements QueryStorage
         return array_slice($filtered, 0, $limit);
     }
 
+    public function search(array $filters = []): array
+    {
+        $page = max(1, (int) ($filters['page'] ?? 1));
+        $perPage = max(1, min(100, (int) ($filters['per_page'] ?? 15)));
+
+        $filtered = $this->queries;
+
+        if (!empty($filters['sql_like'])) {
+            $pattern = strtolower($filters['sql_like']);
+            $filtered = array_filter($filtered, fn($q) => str_contains(strtolower($q['sql'] ?? ''), $pattern));
+        }
+
+        if (!empty($filters['table_name'])) {
+            $table = strtolower($filters['table_name']);
+            $filtered = array_filter($filtered, fn($q) => str_contains(strtolower($q['sql'] ?? ''), $table));
+        }
+
+        if (!empty($filters['type'])) {
+            $type = strtoupper($filters['type']);
+            $filtered = array_filter($filtered, fn($q) => strtoupper($q['analysis']['type'] ?? '') === $type);
+        }
+
+        if (isset($filters['min_duration'])) {
+            $min = (float) $filters['min_duration'];
+            $filtered = array_filter($filtered, fn($q) => ($q['time'] ?? 0) >= $min);
+        }
+
+        if (isset($filters['max_duration'])) {
+            $max = (float) $filters['max_duration'];
+            $filtered = array_filter($filtered, fn($q) => ($q['time'] ?? 0) <= $max);
+        }
+
+        if (isset($filters['is_slow'])) {
+            $isSlow = (bool) $filters['is_slow'];
+            $filtered = array_filter($filtered, fn($q) => ($q['analysis']['performance']['is_slow'] ?? false) === $isSlow);
+        }
+
+        $filtered = array_values($filtered);
+        $total = count($filtered);
+        $data = array_slice($filtered, ($page - 1) * $perPage, $perPage);
+
+        return [
+            'data' => $data,
+            'total' => $total,
+            'page' => $page,
+            'per_page' => $perPage,
+        ];
+    }
+
+    public function finalizeRequest(string $requestId): void
+    {
+        // No-op for in-memory storage
+    }
+
     public function supportsPersistence(): bool
     {
         return false;

@@ -12,11 +12,17 @@ use GladeHQ\QueryLens\QueryAnalyzer;
 class QueryListener
 {
     protected QueryAnalyzer $analyzer;
+    protected ?TransactionListener $transactionListener = null;
     protected bool $handling = false;
 
     public function __construct(QueryAnalyzer $analyzer)
     {
         $this->analyzer = $analyzer;
+    }
+
+    public function setTransactionListener(TransactionListener $listener): void
+    {
+        $this->transactionListener = $listener;
     }
 
     public function register(): void
@@ -35,6 +41,11 @@ class QueryListener
         $this->handling = true;
 
         try {
+            // Increment query count on active transaction before recording
+            if ($this->transactionListener) {
+                $this->transactionListener->incrementQueryCount($event->connectionName);
+            }
+
             $this->analyzer->recordQuery(
                 $event->sql,
                 $event->bindings,

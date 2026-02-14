@@ -4,6 +4,7 @@ namespace GladeHQ\QueryLens\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Symfony\Component\HttpFoundation\Response;
 
 class QueryLensMiddleware
@@ -44,6 +45,15 @@ class QueryLensMiddleware
             return false;
         }
 
+        // Gate-based authentication (checked first if configured)
+        $gateName = config('query-lens.web_ui.auth_gate');
+        if ($gateName !== null) {
+            if (!Gate::check($gateName)) {
+                return false;
+            }
+        }
+
+        // IP allowlist (skipped in local/testing environments)
         if (!app()->environment(['local', 'testing'])) {
             $allowedIps = config('query-lens.web_ui.allowed_ips', ['127.0.0.1', '::1']);
             if (!in_array($request->ip(), $allowedIps)) {
@@ -51,6 +61,7 @@ class QueryLensMiddleware
             }
         }
 
+        // Custom auth callback
         $authCallback = config('query-lens.web_ui.auth_callback');
         if ($authCallback && is_callable($authCallback)) {
             return (bool) call_user_func($authCallback, $request);
