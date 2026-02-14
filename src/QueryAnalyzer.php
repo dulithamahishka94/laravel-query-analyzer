@@ -16,6 +16,7 @@ class QueryAnalyzer
     protected array $config;
     protected QueryStorage $storage;
     protected ?string $requestId = null;
+    protected ?string $currentTransactionId = null;
     protected array $queryStructures = [];
     protected bool $enabled = true;
     protected ?bool $sampledForRequest = null;
@@ -51,6 +52,16 @@ class QueryAnalyzer
     public function getRequestId(): ?string
     {
         return $this->requestId;
+    }
+
+    public function setCurrentTransactionId(?string $transactionId): void
+    {
+        $this->currentTransactionId = $transactionId;
+    }
+
+    public function getCurrentTransactionId(): ?string
+    {
+        return $this->currentTransactionId;
     }
 
     public function isSampled(): bool
@@ -125,6 +136,7 @@ class QueryAnalyzer
         $query = [
             'id' => (string) Str::orderedUuid(),
             'request_id' => $this->requestId ?? 'cli-' . getmypid(),
+            'transaction_id' => $this->currentTransactionId,
             'request_path' => request()->path(),
             'request_method' => request()->method(),
             'sql' => $sql,

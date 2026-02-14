@@ -14,6 +14,7 @@ use GladeHQ\QueryLens\Http\Controllers\AlertController;
 use GladeHQ\QueryLens\Http\Controllers\QueryLensController;
 use GladeHQ\QueryLens\Http\Middleware\QueryLensMiddleware;
 use GladeHQ\QueryLens\Listeners\QueryListener;
+use GladeHQ\QueryLens\Listeners\TransactionListener;
 use GladeHQ\QueryLens\Services\AggregationService;
 use GladeHQ\QueryLens\Services\AlertService;
 use GladeHQ\QueryLens\Services\DataRetentionService;
@@ -82,6 +83,7 @@ class QueryLensServiceProvider extends ServiceProvider
         });
 
         $this->app->singleton(QueryListener::class);
+        $this->app->singleton(TransactionListener::class);
 
         $this->app->singleton(IndexAdvisor::class, function ($app) {
             $advisor = new IndexAdvisor();
@@ -137,7 +139,15 @@ class QueryLensServiceProvider extends ServiceProvider
         $this->registerRoutes();
 
         if (config('query-lens.enabled', false)) {
-            $this->app->make(QueryListener::class)->register();
+            $queryListener = $this->app->make(QueryListener::class);
+            $queryListener->register();
+
+            // Register transaction tracking if enabled
+            if (config('query-lens.track_transactions', false)) {
+                $transactionListener = $this->app->make(TransactionListener::class);
+                $transactionListener->register();
+                $queryListener->setTransactionListener($transactionListener);
+            }
 
             // Register the middleware to track Request IDs
             $router = $this->app['router'];
@@ -195,6 +205,10 @@ class QueryLensServiceProvider extends ServiceProvider
                     // AI optimization
                     Route::post('ai-optimize', [QueryLensController::class, 'aiOptimize'])
                         ->name('query-lens.api.v2.ai-optimize');
+
+                    // Transaction tracking
+                    Route::get('transactions', [QueryLensController::class, 'transactions'])
+                        ->name('query-lens.api.v2.transactions');
 
                     // Alert management endpoints
                     Route::get('alerts', [AlertController::class, 'index'])->name('query-lens.api.v2.alerts.index');

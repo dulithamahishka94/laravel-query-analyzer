@@ -222,6 +222,20 @@ return [
         'rate_limit' => 10,
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Transaction Tracking
+    |--------------------------------------------------------------------------
+    |
+    | Track database transaction begin/commit/rollback events. Records
+    | transaction duration, nesting depth, query count, and outcome.
+    | Associates queries with their enclosing transaction automatically.
+    |
+    | Disabled by default. Enable for debugging transaction-heavy workloads.
+    |
+    */
+    'track_transactions' => env('QUERY_LENS_TRACK_TRANSACTIONS', false),
+
     'regression' => [
         'webhook_url' => env('QUERY_LENS_REGRESSION_WEBHOOK_URL'),
         'threshold' => env('QUERY_LENS_REGRESSION_THRESHOLD', 0.2),

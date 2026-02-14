@@ -16,6 +16,7 @@ use GladeHQ\QueryLens\Services\AIQueryOptimizer;
 use GladeHQ\QueryLens\Services\IndexAdvisor;
 use GladeHQ\QueryLens\Services\QueryExportService;
 use GladeHQ\QueryLens\Services\RegressionDetector;
+use GladeHQ\QueryLens\Listeners\TransactionListener;
 
 class QueryLensController extends Controller
 {
@@ -365,6 +366,55 @@ class QueryLensController extends Controller
         return $this->noCacheResponse(response()->json([
             'suggestions' => $suggestions,
             'days_analyzed' => $days,
+        ]));
+    }
+
+    public function transactions(Request $request): JsonResponse
+    {
+        if (!config('query-lens.track_transactions', false)) {
+            return $this->noCacheResponse(response()->json([
+                'error' => 'Transaction tracking is disabled',
+                'hint' => 'Set QUERY_LENS_TRACK_TRANSACTIONS=true in your .env file',
+            ], 400));
+        }
+
+        $transactionListener = app(TransactionListener::class);
+
+        $completed = $transactionListener->getCompletedTransactions();
+        $active = $transactionListener->getActiveTransactions();
+
+        // Apply optional filters
+        $status = $request->query('status');
+        $connection = $request->query('connection');
+
+        if ($status === 'active') {
+            $results = $active;
+        } elseif ($status) {
+            $results = array_filter($completed, fn($t) => $t['status'] === $status);
+        } else {
+            $results = array_merge($active, $completed);
+        }
+
+        if ($connection) {
+            $results = array_filter($results, fn($t) => $t['connection'] === $connection);
+        }
+
+        // Sort by started_at descending
+        usort($results, fn($a, $b) => ($b['started_at'] ?? 0) <=> ($a['started_at'] ?? 0));
+
+        $limit = (int) $request->query('limit', 100);
+        $results = array_slice(array_values($results), 0, $limit);
+
+        $summary = [
+            'total_completed' => count($completed),
+            'total_active' => count($active),
+            'committed' => count(array_filter($completed, fn($t) => $t['status'] === 'committed')),
+            'rolled_back' => count(array_filter($completed, fn($t) => $t['status'] === 'rolled_back')),
+        ];
+
+        return $this->noCacheResponse(response()->json([
+            'transactions' => $results,
+            'summary' => $summary,
         ]));
     }
 
