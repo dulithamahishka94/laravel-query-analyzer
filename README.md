@@ -3,7 +3,7 @@
 **The self-hosted query performance platform for Laravel -- with AI-powered optimization, automated index recommendations, and CI pipeline regression detection.**
 
 [![PHP Version](https://img.shields.io/packagist/php-v/gladehq/laravel-query-lens.svg?style=flat-square)](https://packagist.org/packages/gladehq/laravel-query-lens)
-[![Laravel Version](https://img.shields.io/badge/laravel-9.x%20%7C%2010.x%20%7C%2011.x%20%7C%2012.x-blue?style=flat-square)](https://packagist.org/packages/gladehq/laravel-query-lens)
+[![Laravel Version](https://img.shields.io/badge/laravel-10.x%20%7C%2011.x%20%7C%2012.x-blue?style=flat-square)](https://packagist.org/packages/gladehq/laravel-query-lens)
 [![Tests](https://img.shields.io/badge/tests-720%20passing-brightgreen?style=flat-square)](https://github.com/gladehq/laravel-query-lens)
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/gladehq/laravel-query-lens.svg?style=flat-square)](https://packagist.org/packages/gladehq/laravel-query-lens)
 [![License](https://img.shields.io/packagist/l/gladehq/laravel-query-lens.svg?style=flat-square)](https://packagist.org/packages/gladehq/laravel-query-lens)
@@ -299,7 +299,7 @@ The plugin provides:
 ## Requirements
 
 - PHP 8.1+
-- Laravel 9.x, 10.x, 11.x, or 12.x
+- Laravel 10.x, 11.x, or 12.x
 - Filament 3.x (optional, for panel integration)
 
 ---

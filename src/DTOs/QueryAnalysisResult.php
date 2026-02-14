@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace GladeHQ\QueryLens\DTOs;
 
-readonly class QueryAnalysisResult
+class QueryAnalysisResult
 {
     public function __construct(
-        public QueryType $type,
-        public PerformanceRating $performance,
-        public float $executionTime,
-        public ComplexityAnalysis $complexity,
-        public array $recommendations,
-        public array $issues,
+        public readonly QueryType $type,
+        public readonly PerformanceRating $performance,
+        public readonly float $executionTime,
+        public readonly ComplexityAnalysis $complexity,
+        public readonly array $recommendations,
+        public readonly array $issues,
     ) {}
 
     public function toArray(): array

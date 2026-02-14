@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace GladeHQ\QueryLens\DTOs;
 
-readonly class ComplexityAnalysis
+class ComplexityAnalysis
 {
     public function __construct(
-        public int $score,
-        public ComplexityLevel $level,
-        public int $joins,
-        public int $subqueries,
-        public int $conditions,
+        public readonly int $score,
+        public readonly ComplexityLevel $level,
+        public readonly int $joins,
+        public readonly int $subqueries,
+        public readonly int $conditions,
     ) {}
 
     public static function analyze(string $sql, array $weights = []): self
